@@ -88,6 +88,25 @@ the real hardware; the live script only adds what is specific to being live:
 trust the repo key, create the user, drop the idle lock, autologin. CI fails the
 build if it starts enabling services on its own.
 
+## Hidden app entries
+
+`profile/airootfs/usr/local/share/applications/` contains no applications. Each
+file there hides one `.desktop` entry that a transitive dependency drops into
+`/usr/share/applications`, where it then shows up in the app grid as if the user
+had installed it.
+
+On a Nidara installed over somebody's existing Arch these are lost among their
+own apps. On a freshly booted ISO they **are** the app grid: before this, the
+first screen of a brand-new Nidara offered three Avahi browsers, two Qt V4L2
+utilities and a hardware-topology viewer, and only then Firefox. Measured in a
+VM: fourteen entries became seven.
+
+None of them come from a package this image asks for by name — they arrive
+behind nautilus (avahi), ffmpeg (v4l-utils, hwloc) and uwsm (uuctl), all of them
+dependencies of `nidara` itself, so the same entries appear on every ordinary
+Nidara install too. Hiding them upstream rather than here is a change worth
+making; this directory is the evidence that the mechanism works.
+
 ## Watching a boot from outside
 
 The **verbose** boot entry also puts the console on the serial port, so a VM host

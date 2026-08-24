@@ -33,7 +33,6 @@ sof-firmware
 sudo
 less
 nano
-vim
 man-db
 man-pages
 terminus-font

@@ -1,0 +1,10 @@
+[Desktop Entry]
+# Override that hides v4l-utils's "Qt V4L2 test Utility" from the app grid.
+# XDG_DATA_DIRS is /usr/local/share:/usr/share, so this file wins over the one
+# the package ships and NoDisplay applies. Verified live in a VM: the grid went
+# from fourteen entries to seven, and Gio resolves this path with
+# should_show=false.
+Type=Application
+Name=Qt V4L2 test Utility
+Exec=/bin/true
+NoDisplay=true

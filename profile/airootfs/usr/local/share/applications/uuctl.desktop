@@ -1,0 +1,10 @@
+[Desktop Entry]
+# Override that hides uwsm's "uuctl" from the app grid.
+# XDG_DATA_DIRS is /usr/local/share:/usr/share, so this file wins over the one
+# the package ships and NoDisplay applies. Verified live in a VM: the grid went
+# from fourteen entries to seven, and Gio resolves this path with
+# should_show=false.
+Type=Application
+Name=uuctl
+Exec=/bin/true
+NoDisplay=true
