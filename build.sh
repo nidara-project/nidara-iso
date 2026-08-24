@@ -35,6 +35,13 @@ command -v mkarchiso >/dev/null || { echo "archiso is not installed: pacman -S a
 
 if ! pacman-key --list-keys "$KEY_FPR" &>/dev/null; then
     echo "==> Trusting the nidara-repo signing key on this build host..."
+    # `--init` first, and not only for the sake of a bare machine: the
+    # archlinux:latest container arrives with a POPULATED keyring but no local
+    # signing key, so `--lsign-key` dies there with "no secret key available to
+    # sign with" — after the import has already succeeded, which is what makes
+    # it read like a bad key rather than a missing one. Idempotent: on a machine
+    # that has the key it does nothing.
+    pacman-key --init
     pacman-key --add "$PROFILE/nidara-repo.gpg"
     pacman-key --lsign-key "$KEY_FPR"
 fi
