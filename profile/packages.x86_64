@@ -38,12 +38,22 @@ man-pages
 terminus-font
 
 # ── the desktop ──────────────────────────────────────────────────────────────
-# The only package on this list that does not come from Arch's own repos.
+# The only two packages on this list that do not come from Arch's own repos.
+#
+# They answer two different questions, which is why they are two packages and
+# not one. `nidara` is what the desktop needs to RUN — without it there is no
+# shell. `nidara-apps` is what makes a freshly installed machine USABLE: a
+# browser, and whatever else that set turns out to be. Its contents are
+# deliberately undecided and live in nidara-repo, one line away from changing;
+# what matters here is that the ISO names both and `install.sh` names only the
+# first (it runs on an Arch someone already uses, with their own apps chosen).
+#
+# Everything BELOW this section is the medium's own: kernel, firmware, installer
+# tools, VM guest agents. None of it belongs on the machine this ISO installs —
+# that system gets `nidara` + `nidara-apps` and nothing else from here. Keeping
+# the two apart is why the browser is no longer a line in this file.
 nidara
-# A freshly installed system with no way to browse the web is broken. This is an
-# ISO-level decision: install.sh deliberately ships no browser, because it runs
-# on an Arch the user already has (and already browses from).
-firefox
+nidara-apps
 
 # ── installing ───────────────────────────────────────────────────────────────
 arch-install-scripts
