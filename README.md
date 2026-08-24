@@ -86,6 +86,21 @@ the real hardware; the live script only adds what is specific to being live:
 trust the repo key, create the user, drop the idle lock, autologin. CI fails the
 build if it starts enabling services on its own.
 
+## Watching a boot from outside
+
+The **verbose** boot entry also puts the console on the serial port, so a VM host
+reads the whole boot — kernel, systemd, and `nidara-live-setup`'s own output —
+without needing a way into the guest:
+
+```bash
+qemu-system-x86_64 ... -serial file:boot.log     # then pick the verbose entry
+```
+
+That matters more here than on a normal image: the medium ships with `sshd`
+installed but not enabled, and QEMU's `screendump` does not work with the
+`virtio-gpu-gl` device Hyprland needs. Without the serial line, a boot that ends
+in a black screen tells the host nothing at all.
+
 ## Known gaps
 
 - **No graphical installer yet** (see above).
