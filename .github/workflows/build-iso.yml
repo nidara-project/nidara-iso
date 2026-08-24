@@ -47,6 +47,30 @@ jobs:
             exit 1
           fi
 
+      - name: The image must answer everything systemd-firstboot would ask
+        # systemd-firstboot runs on every boot of this medium — mkarchiso writes
+        # /etc/machine-id as "uninitialized", which is exactly what
+        # ConditionFirstBoot=yes tests. It then prompts, ON THE CONSOLE AND
+        # BEFORE ANY DESKTOP, for each setting it cannot find already made. A
+        # forgotten file here does not degrade anything: it hangs the boot at a
+        # text prompt nobody can answer from a live USB they just plugged in.
+        #
+        # Found the hard way: /etc/localtime was missing and the first ISO ever
+        # built stopped at "configure timezone" instead of reaching the desktop.
+        # --prompt-keymap-auto derives the keymap from the locale and never
+        # prompts, which is why /etc/vconsole.conf is not on this list (releng
+        # ships no such file either).
+        run: |
+          set -e
+          missing=0
+          for f in localtime locale.conf hostname passwd shadow; do
+            if [ ! -e "profile/airootfs/etc/$f" ]; then
+              echo "::error::profile/airootfs/etc/$f is missing — systemd-firstboot will prompt for it and the boot will stop there"
+              missing=1
+            fi
+          done
+          exit $missing
+
   build:
     needs: lint
     runs-on: ubuntu-latest

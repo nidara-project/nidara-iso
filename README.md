@@ -36,6 +36,8 @@ the first thing with Nidara's identity on it is the desktop itself.
   reads NetworkManager's `libnm` directly, so on any other stack its network
   panel would be blind.
 - **The idle lock is removed** — see "The trap" below.
+- **The clock is UTC.** archiso's own medium does the same; picking a timezone is
+  a question the installer asks, not something a live session should guess.
 
 ### Installing, today
 
