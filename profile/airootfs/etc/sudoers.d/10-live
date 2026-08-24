@@ -1,0 +1,4 @@
+# Live medium: the live user administers the machine it is going to install.
+# Asking for a password the user did not choose (and would have to read off a
+# README) buys nothing here — this account exists for the length of one boot.
+live ALL=(ALL:ALL) NOPASSWD: ALL

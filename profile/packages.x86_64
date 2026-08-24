@@ -1,0 +1,110 @@
+# Packages installed into the live image.
+#
+# Derived from archiso's `releng` list, with three deliberate changes:
+#
+#  1. ADDED the desktop: `nidara` (from the [nidara] repo — see pacman.conf) and
+#     the handful of things a live desktop needs that a rescue shell does not.
+#     `nidara` pulls Hyprland, GTK4/GJS, PipeWire, portals, fonts and its own
+#     default apps through its depends=() — none of that is listed here.
+#  2. SWAPPED the network stack: releng boots iwd + systemd-networkd; Nidara's
+#     shell reads NetworkManager's libnm directly, so the live session has to be
+#     on NetworkManager or its network panel is blind. This is not a preference.
+#  3. REMOVED the rescue-DVD toolbox (clonezilla, partclone, partimage, ddrescue,
+#     testdisk, fsarchiver, dmraid, jfsutils, nilfs-utils…), the terminal
+#     userland nobody reaches from a desktop (irssi, lynx, mc, screen, tmux,
+#     lftp, nmap…) and the VPN/dial-up clients (openvpn, vpnc, openconnect, ppp,
+#     pptpclient, xl2tpd, wvdial — NetworkManager plugins cover the modern half).
+#     This is an install medium for a desktop, not a maintenance DVD, and every
+#     megabyte here is a megabyte of download.
+#
+# Hardware support is NOT part of that trim: firmware, filesystem tools, wifi
+# drivers and VM guest agents stay exactly as releng has them.
+
+# ── base system ──────────────────────────────────────────────────────────────
+base
+linux
+linux-firmware
+linux-firmware-marvell
+amd-ucode
+intel-ucode
+mkinitcpio
+mkinitcpio-archiso
+sof-firmware
+sudo
+less
+nano
+vim
+man-db
+man-pages
+terminus-font
+
+# ── the desktop ──────────────────────────────────────────────────────────────
+# The only package on this list that does not come from Arch's own repos.
+nidara
+# A freshly installed system with no way to browse the web is broken. This is an
+# ISO-level decision: install.sh deliberately ships no browser, because it runs
+# on an Arch the user already has (and already browses from).
+firefox
+
+# ── installing ───────────────────────────────────────────────────────────────
+arch-install-scripts
+archinstall
+btrfs-progs
+cryptsetup
+dosfstools
+e2fsprogs
+efibootmgr
+exfatprogs
+f2fs-tools
+gptfdisk
+grub
+lvm2
+mdadm
+mtools
+nvme-cli
+ntfsprogs
+parted
+reflector
+squashfs-tools
+syslinux
+xfsprogs
+
+# ── network ──────────────────────────────────────────────────────────────────
+networkmanager
+modemmanager
+usb_modeswitch
+wpa_supplicant
+wireless-regdb
+wireless_tools
+iw
+b43-fwcutter
+broadcom-wl
+openssh
+rsync
+bind
+systemd-resolvconf
+
+# ── hardware / storage ───────────────────────────────────────────────────────
+bolt
+dmidecode
+ethtool
+hdparm
+libfido2
+libusb-compat
+lsscsi
+mmc-utils
+pcsclite
+sdparm
+sg3_utils
+smartmontools
+tpm2-tools
+tpm2-tss
+usbutils
+usbmuxd
+alsa-utils
+
+# ── virtual machines (this image is tested in one) ───────────────────────────
+qemu-guest-agent
+open-vm-tools
+virtualbox-guest-utils-nox
+hyperv

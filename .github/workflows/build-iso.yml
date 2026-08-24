@@ -1,0 +1,83 @@
+name: build-iso
+
+# Builds the live ISO in an Arch container and uploads it as a workflow
+# artifact. This is the only place the image is ever built for real: mkarchiso
+# needs root, loop devices and a machine willing to be mounted on, and the
+# maintainer's own desktop is a poor stand-in for a clean Arch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One build at a time per ref. A cancelled mkarchiso leaves mounts behind, and
+# the runner is thrown away anyway — but a queued second build on the same ref
+# would just burn twenty minutes to produce the same image.
+concurrency:
+  group: nidara-iso-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        # Cheap gate that fails in seconds instead of twenty minutes: every
+        # script in this repo has to at least parse. profiledef.sh is sourced by
+        # mkarchiso, so a typo there dies AFTER the container is up.
+        run: |
+          set -e
+          for f in build.sh profile/profiledef.sh profile/airootfs/usr/local/bin/*; do
+            echo "  bash -n $f"; bash -n "$f"
+          done
+      - name: The live setup script must not reimplement nidara-setup
+        # nidara-setup owns greetd, /etc/environment, the per-user seeds and the
+        # services. The live script is allowed to WRITE the autologin config
+        # (step 5, deliberately after nidara-setup runs) but must not start
+        # enabling services or seeding config on its own — that is the drift
+        # this repo is one `systemctl enable` away from.
+        run: |
+          if grep -nE '^\s*systemctl (enable|disable)' profile/airootfs/usr/local/bin/nidara-live-setup; then
+            echo "::error::nidara-live-setup enables services — that is nidara-setup's job"
+            exit 1
+          fi
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: archlinux:latest
+      # mkarchiso mounts tmpfs, loop-mounts images and runs pacstrap in a
+      # chroot. None of that works in the default container sandbox.
+      options: --privileged
+    steps:
+      - name: Bootstrap
+        # -Syu, never a bare -Sy: archlinux:latest moves, and a partial sync
+        # mismatches sonames (same rule as install.sh and nidara-repo's CI).
+        run: pacman -Syu --needed --noconfirm archiso git
+
+      - uses: actions/checkout@v4
+
+      - name: Build the ISO
+        run: ./build.sh -o "$GITHUB_WORKSPACE/out" -w /tmp/archiso-work
+
+      - name: Report what came out
+        # The number that decides whether this image can ship as a GitHub
+        # release asset at all (2 GiB per file), printed where a failed build
+        # can still be compared against a passing one.
+        run: |
+          ls -lh out/
+          du -b out/*.iso | awk '{printf "ISO size: %.2f GiB (%d bytes)\n", $1/1073741824, $1}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nidara-iso
+          path: out/*.iso
+          retention-days: 7
+          compression-level: 0   # an ISO is already compressed

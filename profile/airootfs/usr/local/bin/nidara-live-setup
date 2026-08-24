@@ -1,0 +1,145 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────────────────────
+# nidara-live-setup — first (and only) boot of the live medium.
+#
+# Everything here could ALMOST be baked into the image at build time. It is not,
+# for one reason: `nidara-setup` — the desktop's own first-run script, shipped by
+# the `nidara` package — reads the RUNNING system (keyboard layout, timezone,
+# locale, battery presence, which display manager is active) to decide what it
+# writes. Baking its output at build time would freeze the build container's
+# answers into every machine that boots this ISO. So the live medium runs the
+# very same script every real install runs, at boot, against the real hardware.
+#
+# The consequence to keep in mind: this file must never reimplement a step that
+# nidara-setup already owns. It only does what is specific to being LIVE.
+#
+# Runs once per boot, and starts greetd itself when it is done. Failures are
+# loud but never fatal: a broken step must still leave a machine that reaches a
+# desktop, because a live medium that boots to a black screen tells the user
+# nothing about what went wrong.
+# ─────────────────────────────────────────────────────────────────────────────
+set -u
+
+LIVE_USER=live
+LIVE_PASS=nidara          # documented in the README and on the ISO's boot menu
+KEY_FPR=80B0AC8C36A43611A8619959B06B716279F755A9
+
+say()  { printf '  [live] %s\n' "$*"; }
+warn() { printf '  [live] WARN: %s\n' "$*" >&2; }
+
+# ── 1. trust the [nidara] repo inside the live system ────────────────────────
+# pacman-init.service has just run --init/--populate on a tmpfs keyring, so our
+# key has to be re-added on every boot. Without this, `pacman -Syu` in the live
+# session refuses the one repo that is not Arch's.
+if ! pacman-key --list-keys "$KEY_FPR" &>/dev/null; then
+    pacman-key --add /usr/local/share/nidara-live/nidara-repo.gpg \
+        && pacman-key --lsign-key "$KEY_FPR" \
+        && say "nidara-repo signing key trusted" \
+        || warn "could not trust the nidara-repo key — [nidara] will be unusable"
+fi
+
+# ── 2. the live user ─────────────────────────────────────────────────────────
+# Created here rather than committed as /etc/passwd + /etc/group lines so the
+# group list comes from the packages actually installed in the image, instead of
+# a hand-maintained copy that silently rots when a dependency changes.
+if ! id -u "$LIVE_USER" &>/dev/null; then
+    useradd -m -G wheel,video,audio,input,storage,network,rfkill,lp \
+            -s /bin/bash -c "Nidara Live" "$LIVE_USER" \
+        || warn "useradd failed"
+    echo "$LIVE_USER:$LIVE_PASS" | chpasswd || warn "chpasswd failed"
+    say "user '$LIVE_USER' created (password: $LIVE_PASS)"
+fi
+
+# ── 2b. generate the locale ──────────────────────────────────────────────────
+# glibc ships C.UTF-8 compiled in and nothing else; every other locale has to be
+# generated on the target machine, and the ISO build has no chroot hook to do it
+# at build time. It runs BEFORE nidara-setup on purpose — that script reads the
+# system locale to seed the desktop's own defaults, and would otherwise seed C.
+if ! locale -a 2>/dev/null | grep -qi '^en_US.utf8$'; then
+    locale-gen >/dev/null 2>&1 && say "locale en_US.UTF-8 generated" \
+        || warn "locale-gen failed — dates and the calendar will fall back to C"
+fi
+
+# ── 3. Nidara's own first-run setup ──────────────────────────────────────────
+# The same command a `pacman -S nidara` user runs by hand. It writes
+# /etc/environment, /etc/greetd, per-user config under ~live/.config/nidara, and
+# enables the services the shell talks to. SUDO_USER (set in the unit) is what
+# points its per-user half at the live user.
+if command -v nidara-setup >/dev/null 2>&1; then
+    nidara-setup || warn "nidara-setup exited non-zero — the desktop may be partially configured"
+else
+    warn "nidara-setup not found — is the nidara package installed?"
+fi
+
+# ── 4. no idle lock on the live medium ───────────────────────────────────────
+# THE trap of a live desktop, and it is a lockout, not an annoyance: hypridle
+# locks the session after 10 minutes, and the lock card refuses to submit an
+# empty password (LockCard.ts — it grabs focus and returns), so a user who never
+# chose a password cannot get back in. Leave the machine for a coffee and the
+# only way out is a hard reset.
+#
+# Step 3 has already seeded the per-user copy from /usr/share/nidara; strip the
+# lock listener from it here. The screen still blanks (that listener stays) —
+# what goes is the one that demands a credential nobody was ever asked for.
+IDLE_CONF="/home/$LIVE_USER/.config/nidara/hypridle.conf"
+if [ -f "$IDLE_CONF" ]; then
+    # awk, not python: `python` reaches this image only as a dependency of
+    # archinstall, and a script that breaks the day an unrelated package drops a
+    # transitive dep is the exact bug class this project keeps re-learning.
+    # The block is matched by the command it runs, never by its position.
+    if awk '
+        /^[[:space:]]*listener[[:space:]]*\{/ { inblock = 1; buf = $0 "\n"; hit = 0; next }
+        inblock {
+            buf = buf $0 "\n"
+            if ($0 ~ /nidara-lock/) hit = 1
+            if ($0 ~ /^[[:space:]]*\}/) {
+                if (hit) removed = 1; else printf "%s", buf
+                inblock = 0
+            }
+            next
+        }
+        { print }
+        END { exit (removed ? 0 : 1) }
+    ' "$IDLE_CONF" > "$IDLE_CONF.new"; then
+        mv "$IDLE_CONF.new" "$IDLE_CONF"
+        chown "$LIVE_USER:$LIVE_USER" "$IDLE_CONF"
+        say "idle lock removed from the live session"
+    else
+        rm -f "$IDLE_CONF.new"
+        warn "no idle-lock listener found in $IDLE_CONF — check it by hand"
+    fi
+else
+    # Silence here would be the worst outcome of all: no file means step 3 did
+    # not seed it, so nobody has disarmed the lock and the session will still
+    # arm it ten minutes from now.
+    warn "$IDLE_CONF does not exist — the idle lock was NOT disarmed"
+fi
+
+# ── 5. log straight into the desktop ─────────────────────────────────────────
+# Written AFTER nidara-setup, which rewrites /etc/greetd/config.toml whenever it
+# recognises the config as Nidara's own. Order matters: the other way round, the
+# autologin would be overwritten by the greeter.
+#
+# The live session shows no login screen at all. A greeter is only honest when
+# there is a credential to type, and here there is not — the password above
+# exists so a deliberate lock or a `sudo` prompt is recoverable, not as a gate
+# to walk through on the way in. The greeter is what the INSTALLED system boots.
+cat > /etc/greetd/config.toml <<'CONF'
+# Live medium: autologin. Rewritten at every boot by nidara-live-setup.
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/bin/nidara"
+user = "live"
+CONF
+say "autologin configured"
+
+# greetd is not enabled in the image (see the unit) — start it here, now that it
+# has a user to log in and a config that says so. --no-block: this script is
+# itself part of graphical.target, and waiting on a unit that target also pulls
+# in is how a boot hangs.
+systemctl start --no-block greetd || warn "could not start greetd — no desktop will appear"
+
+touch /run/nidara-live-setup.done
+exit 0

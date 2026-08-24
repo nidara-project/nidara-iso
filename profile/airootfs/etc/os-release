@@ -1,0 +1,20 @@
+# Nidara identifies itself as Nidara and says, in the field that exists for
+# exactly that, that it IS an Arch system. Both halves matter: the name is ours
+# (rebrand), the lineage is Arch's and stated as such (no appropriation). Arch's
+# name and logo are trademarks; "based on Arch Linux" is nominative use and
+# ID_LIKE="arch" is the same statement in a form scripts can read.
+#
+# This file belongs to the `filesystem` package on a normal Arch install. Here
+# it is an image-only override — the live medium never upgrades, and the system
+# this ISO INSTALLS gets Arch's own file, untouched.
+NAME="Nidara"
+PRETTY_NAME="Nidara (live)"
+ID=nidara
+ID_LIKE="arch"
+BUILD_ID=rolling
+ANSI_COLOR="0;36"
+HOME_URL="https://github.com/nidara-project"
+DOCUMENTATION_URL="https://github.com/nidara-project/nidara-desktop"
+SUPPORT_URL="https://github.com/nidara-project/nidara-desktop/issues"
+BUG_REPORT_URL="https://github.com/nidara-project/nidara-desktop/issues"
+LOGO=nidara

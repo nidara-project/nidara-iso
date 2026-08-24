@@ -1,0 +1,3 @@
+# Generated at first boot by nidara-live-setup (locale-gen needs to run on the
+# target machine; the ISO build has no chroot hook to do it here).
+en_US.UTF-8 UTF-8

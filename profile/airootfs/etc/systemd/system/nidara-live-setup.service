@@ -1,0 +1,26 @@
+[Unit]
+Description=Nidara live session setup
+Documentation=file:/usr/local/bin/nidara-live-setup
+After=pacman-init.service
+# greetd is deliberately NOT enabled in the image. Left disabled, nidara-setup
+# sees "no display manager" — the same state a fresh Arch install is in — and
+# runs its full greetd branch instead of the "someone else's greeter, don't
+# touch" one it would take if it found greetd enabled with the package's own
+# agreety config. The live script starts greetd itself once the config is in
+# place; the cost is that this unit, not systemd, decides when the login
+# happens, and the benefit is that the live path and a real install run the
+# same code.
+ConditionPathExists=!/run/nidara-live-setup.done
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# nidara-setup takes its target user from SUDO_USER — that is how a normal
+# install invokes it (`sudo nidara-setup`). Without this it would run against an
+# empty user name and seed the desktop's config into /.config.
+Environment=SUDO_USER=live
+ExecStart=/usr/local/bin/nidara-live-setup
+StandardOutput=journal+console
+
+[Install]
+WantedBy=graphical.target
