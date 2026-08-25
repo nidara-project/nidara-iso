@@ -206,12 +206,20 @@ black, `grim` hung). Three distinct failures, in order, each measured against th
    process, in `/proc/<pid>/environ` — an env var set in `/etc/environment` does NOT arrive).
    What clears it is a different QEMU display path: **`-display gtk,gl=on`** instead of
    `egl-headless`. With that, the log shows zero blit and zero dmabuf errors.
-3. **Frames still arrive only occasionally.** After a session restart the first frame renders and
-   `grim` captures it; subsequent captures come back as a uniform black 4 KB PNG even though
-   `hyprctl layers` lists `nidara-bar`, `nidara-dock`, `nidara-island` and `awww-daemon` at
-   `a: 1`, with `reserved: 0 40 0 100`. So a QEMU run is good enough to prove the medium BOOTS and
-   COMPOSES; it is not a reliable way to look at it. **For appearance, boot the ISO on real
-   hardware.**
+3. **And then the screen stays black anyway.** With both error classes at zero, one frame rendered
+   once — a `grim` capture showing the bar drawn correctly, brand mark, workspace pill and the
+   right-hand cluster — and nothing after it. Five forced redraws returned a uniform black 4 KB
+   PNG each time, while `hyprctl layers` listed `nidara-bar`, `nidara-dock`, `nidara-island` and
+   `awww-daemon` at `a: 1` with `reserved: 0 40 0 100`.
+
+   ⚠️ **And it is not the capture path.** QEMU's own window, photographed from the host, is black
+   too — with `fgconsole` reporting VT 1 (the desktop's, not the console's) and the compositor's
+   log clean. Forcing `LIBGL_ALWAYS_SOFTWARE=1` and `GSK_RENDERER=cairo` into the session (both
+   verified to reach the process) changes nothing.
+
+   **So: a QEMU run proves the medium BOOTS and COMPOSES, and that is all it proves. To see what
+   this looks like, boot the ISO on real hardware.** Do not read "layers mapped" as "drawn" — that
+   inference is what had this medium recorded as verified for weeks.
 
 Getting a shell on the live medium without typing into the window: `sshd` is installed but not
 enabled and `root` has an empty password, so drive the console over QMP `send-key` —
