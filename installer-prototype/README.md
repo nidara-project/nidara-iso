@@ -160,8 +160,10 @@ Then, on the serial console: log in as `root`, drop an SSH key into
 
 ## What this still does not answer
 
-- **The interface.** This is a JSON file, not an installer. The decision between
-  Calamares and a GTK front-end is unchanged by it, except that the front-end
-  half now has a worked example of what it would have to produce.
+- **The interface.** This is a JSON file, not an installer. It did, however,
+  settle the decision it was built to inform: **`../INSTALLER.md`, 2026-08-25 —
+  a GTK4 front-end of our own, not Calamares**, with this prototype's shape as
+  its architecture and this prototype itself as the engine's test harness from
+  here on.
 - **How any of it looks.** See the second caveat above.
 - Anything but this shape of machine: UEFI, one disk, no encryption, zram swap.

@@ -116,11 +116,12 @@ from a terminal. Its config accepts a custom signed repository, a package list
 and post-install commands, which is exactly the shape of a Nidara install:
 register `[nidara]`, install `nidara`, run `nidara-setup`.
 
-**The graphical installer is an open decision** — Calamares (configured, never
-forked; it costs ~661 MiB of Qt6 on the image and will look like a Qt app on a
-GTK desktop) versus a GTK4 installer of our own driving `archinstall` as a
-library. The live half of this repo is identical either way, which is why it was
-built first.
+**The graphical installer is decided** (2026-08-25): a GTK4 front-end of our own,
+driving `archinstall`, shipped as `nidara-installer` — an ISO-only package built
+from a fourth bundle in `nidara-desktop`. Not Calamares. `INSTALLER.md` is the
+record, with the measurements and the prior art that turned an earlier
+recommendation around. The live half of this repo was identical either way, which
+is why it was built first.
 
 ## The trap this profile exists to avoid
 
@@ -197,11 +198,15 @@ in a black screen tells the host nothing at all.
 
 ## Known gaps
 
-- **No graphical installer yet** (see above).
+- **No graphical installer yet** — decided but not written; `archinstall` from a
+  terminal is the only way in (see above and `INSTALLER.md`).
 - **No accessibility boot entry.** archiso's `releng` ships one that starts the
   `espeakup` screen reader; a graphical session needs a different answer (Orca),
   and shipping the console one would be a promise the desktop does not keep.
-- **Not yet measured:** the ISO's size. `nidara` pulls the CJK font pack (~330
-  MiB installed) through its dependencies, and a GitHub release asset is capped
-  at 2 GiB. The build prints the number; the package list gets trimmed against
-  it, not against a guess.
+- **The image does not fit GitHub, and will not be trimmed to.** Measured
+  2026-08-25: 3,793 MiB installed in the airootfs → **2,192 MiB of ISO**, against
+  a 2 GiB cap on a release asset. The two packages big enough to close that gap
+  are `noto-fonts-cjk` (299 MiB — the desktop ships ja and zh-CN) and `firefox`
+  (295), and both are things the product promised. So the file goes somewhere
+  without an opinion about its size; `PRODUCT.md` holds the rule and the
+  candidates.
