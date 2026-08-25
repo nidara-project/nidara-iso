@@ -73,25 +73,18 @@ tmpfiles line is `L` and not `L+`, so it never takes the path back.
 
 ### Tagged, not yet published (2026-08-25)
 
-`v0.1.0` is tagged here — that tag is what `nidara-repo` pins to build
-`nidara-release`, since the recipe travels inside the tag rather than being
-committed in the repo that builds it. **`NIDARA_ISO_REF` over there is still
-empty, so the package is not published and no system has this identity yet.**
+`v0.1.0` is tagged here — that tag is what `nidara-repo` pins to build `nidara-release`,
+since the recipe travels inside the tag rather than being committed in the repo that
+builds it. **`NIDARA_ISO_REF` over there is still empty, so the package is not published
+and no system carries this identity yet.** Setting it is one line, and it is what makes the
+identity real.
 
-What blocks it is visibility, not readiness: `scripts/build-repo.sh` fetches the
-tag's tarball with an anonymous `curl`, and this repo is private. Measured, with
-the public repo as the control: the `nidara-iso` tarball answers **404** where
-`nidara-desktop`'s answers **302**. So setting the pin today would not publish an
-identity — it would fail the whole repo build, including the desktop's package.
-
-Either half fixes it, and it is a decision, not a bug: make this repo public (the
-pin is then one line), or give `nidara-repo` a read-only deploy key and clone the
-tag over SSH instead. Deferred on purpose until the repo opens.
-
-Nothing consumes `v0.1.0` in the meantime, so it is not frozen the way a
-published tag is: if the package changes before the repo opens, that tag can be
-moved, or superseded by `0.1.1` — the lockstep gate wants `pkgver`, `VERSION` and
-the tag to agree, and does not care which number they agree on.
+Nothing consumes `v0.1.0` in the meantime, so it is not frozen the way a published tag is:
+if the package changes before the pin is set, that tag can be moved, or superseded by
+`0.1.1` — the lockstep gate wants `pkgver`, `VERSION` and the tag to agree, and does not
+care which number they agree on. Once it IS published, correcting the package means cutting
+a product version, because there is no `pkgrel` to bump without moving a tag somebody has
+already downloaded.
 
 ## What booting it gives you
 
