@@ -13,7 +13,15 @@ iso_name="nidara"
 iso_label="NIDARA_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
 iso_publisher="Nidara Project <https://github.com/nidara-project>"
 iso_application="Nidara live/install medium"
-iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
+# The PRODUCT's version, from the one file that declares it — so the download is
+# `nidara-0.1.0-x86_64.iso` and the system it installs says the same number back
+# (`/etc/os-release`, shipped by `packages/nidara-release`). It used to be the
+# build date, which named the build rather than the product and could not be
+# said out loud: "Nidara 2026.08.25" is not a version anybody declared.
+#
+# `${BASH_SOURCE[0]}` because mkarchiso sources this file from wherever it was
+# invoked; the profile dir is not the cwd.
+iso_version="$(tr -d '[:space:]' < "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../VERSION")"
 
 # `install_dir` stays "arch": it is the directory name inside the image that the
 # archiso initramfs hook searches for, and the bootloader entries interpolate it

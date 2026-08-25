@@ -18,6 +18,14 @@ Run against a real disk on 2026-08-24: the live medium booted in QEMU (UEFI, bla
 - the install finishes and the target carries **`nidara 0.8.1-1` + `nidara-apps`**,
   a `nidara` user, `nidara.desktop` in `wayland-sessions`, and greetd as
   `display-manager.service`;
+
+⚠️ **The run predates `nidara-release`** (added 2026-08-25), so the system it produced still
+said "Arch Linux". The config now installs it as its own step, with
+`--overwrite /etc/os-release` — the flag is required, not defensive: by the time
+`custom_commands` run, systemd's tmpfiles has already put a symlink at that path and pacman
+refuses to write over an unowned file. That step is **not covered by the evidence above** and
+is the first thing the next real-disk run should check (`cat /etc/os-release` on the target,
+and About's header on the booted machine).
 - **the disk boots on its own** — systemd-boot → kernel → `graphical.target` →
   `greetd` active → the greeter's layer surface **mapped and drawn**: `hyprctl
   layers` shows `namespace: nidara-greeter`, 1280x800, `a: 1`, on the overlay

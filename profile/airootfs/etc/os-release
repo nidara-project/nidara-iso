@@ -4,9 +4,19 @@
 # name and logo are trademarks; "based on Arch Linux" is nominative use and
 # ID_LIKE="arch" is the same statement in a form scripts can read.
 #
-# This file belongs to the `filesystem` package on a normal Arch install. Here
-# it is an image-only override — the live medium never upgrades, and the system
-# this ISO INSTALLS gets Arch's own file, untouched.
+# This file is the LIVE medium's alone, and it is deliberately not a package.
+#
+# The installed system gets its identity from `nidara-release` (built from
+# ../../../packages/nidara-release), which OWNS /etc/os-release so the product's
+# version can travel by `pacman -Syu`. That package is not on this image: an
+# airootfs overlay would overwrite the file it owns and leave `pacman -Qkk`
+# calling the medium tampered with for as long as it runs.
+#
+# So the two files differ on purpose, in two ways. PRETTY_NAME says "(live)",
+# which is worth being able to see in a bug report; and there is NO VERSION here,
+# because the product's number is declared in one place (../../../VERSION) and a
+# hand-maintained copy is a copy that can disagree. The medium's own version is
+# the one in its filename.
 NAME="Nidara"
 PRETTY_NAME="Nidara (live)"
 ID=nidara

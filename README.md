@@ -5,8 +5,10 @@ profile that produces a bootable image of the
 [Nidara desktop](https://github.com/nidara-project/nidara-desktop).
 
 It is Arch. The base system comes from Arch's own mirrors, `pacman` stays
-`pacman`, and nothing is frozen or forked. Exactly one package on the image does
-not come from Arch: `nidara` itself, served signed from
+`pacman`, and nothing is frozen or forked. Two packages on the image do not come
+from Arch — `nidara` (the desktop) and `nidara-apps` (the curated application
+set) — plus a third, `nidara-release`, that the installer puts on the TARGET and
+never on the medium (see "Identity" below). All three are served signed from
 [nidara-repo](https://github.com/nidara-project/nidara-repo). "Based on Arch
 Linux" is the whole claim — the name and the look are ours, the system is
 theirs, and `/etc/os-release` says both.
@@ -15,13 +17,43 @@ theirs, and `/etc/os-release` says both.
 
 ```bash
 sudo pacman -S archiso
-sudo ./build.sh            # → out/nidara-YYYY.MM.DD-x86_64.iso
+sudo ./build.sh            # → out/nidara-$(cat VERSION)-x86_64.iso
 ```
 
 `build.sh` imports and locally signs the `nidara-repo` key first: the profile
 registers that repo with `SigLevel = Required`, so an unsigned build host
 refuses to pull the desktop. CI (`.github/workflows/build-iso.yml`) runs the
 same script in an Arch container and uploads the ISO as an artifact.
+
+The image's version is the PRODUCT's, and it is **declared, not derived**: it
+lives in `VERSION` at the root of this repo, `profiledef.sh` reads it for the
+ISO filename, and `packages/nidara-release/PKGBUILD` carries the same number
+into `/etc/os-release` on the system that gets installed. `PRODUCT.md` says why
+that number is not the desktop's and why neither derives from the other.
+
+## Identity: the installed system says "Nidara", the live one says "(live)"
+
+`nidara-release` is a package with one file in it, `/etc/os-release`, and it is
+**not on the image** — the installer puts it on the target. That split is on
+purpose, and both halves are load-bearing:
+
+- **On the target**, identity has to arrive as a package so it can be *updated*.
+  A version written into a file by an installer names the image somebody
+  downloaded and is stale the day after; this one moves with `pacman -Syu`.
+- **On the live medium**, `profile/airootfs/etc/os-release` says
+  `PRETTY_NAME="Nidara (live)"` and carries no version at all. If the package
+  were on the image too, the overlay would overwrite a file the package owns and
+  `pacman -Qkk` would report the medium as tampered with, forever — the exact
+  flaw of the pacman-hook approach the package's own comments describe. And the
+  live file carries no number so that there is only ONE place a version is
+  written down.
+
+⚠️ Installing that package the first time needs `--overwrite /etc/os-release`,
+and that is not carelessness: systemd's `tmpfiles.d/etc.conf` leaves a symlink at
+that path on any system that has booted, no package owns it, and pacman's
+file-conflict check runs before any scriptlet could clear it. Afterwards the file
+is ours and upgrades need no flags — measured, along with the fact that the
+tmpfiles line is `L` and not `L+`, so it never takes the path back.
 
 ## What booting it gives you
 
@@ -67,12 +99,15 @@ to ignore the lid switch for the same reason.
 ## How it is put together
 
 ```
+packages/                our own packages (built and signed by nidara-repo)
+  nidara-release/        /etc/os-release: the product's name and version
 profile/                 an ordinary archiso profile
   profiledef.sh          image identity, boot modes, compression
   packages.x86_64        releng's list, minus the rescue DVD, plus the desktop
   pacman.conf            Arch's repos + [nidara]
   airootfs/              the overlay: identity, systemd, the live setup script
   syslinux/ efiboot/     BIOS and UEFI boot entries
+VERSION                  the product's version — declared here, read by both
 build.sh                 key trust + mkarchiso
 ```
 
