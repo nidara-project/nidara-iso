@@ -1,9 +1,23 @@
 name: build-iso
 
-# Builds the live ISO in an Arch container and uploads it as a workflow
-# artifact. This is the only place the image is ever built for real: mkarchiso
-# needs root, loop devices and a machine willing to be mounted on, and the
-# maintainer's own desktop is a poor stand-in for a clean Arch.
+# Lints the profile on every push, and builds the ISO only when ASKED.
+#
+# It used to build on every push to main, and that stopped being worth it once
+# the numbers were looked at (2026-08-25). The build is ~12 min of mkarchiso, of
+# which only ~2.4 min is pacstrap — the rest is squashfs zstd -19, i.e. CPU. A
+# 4-vCPU runner is the worst machine in the room for that: the maintainer's box
+# does the same work several times faster, off a warm pacman cache, and lands the
+# image where the VM harness can boot it instead of inside a 2.2 GB artifact.
+#
+# The "clean Arch" argument that put it here does not survive contact with the
+# profile either: `profiledef.sh` sets `pacman_conf="pacman.conf"`, so the
+# airootfs is pacstrapped from the PROFILE's repo list (Arch + [nidara]). What
+# the host contributes is the mkarchiso binary and a keyring — not its packages.
+#
+# `lint` still runs on every push, and it is the half that pays: it costs seconds
+# and catches the syntax error that would otherwise die twelve minutes into a
+# container. `build` stays available on demand (workflow_dispatch) as a
+# clean-room second opinion when a local build does something suspicious.
 on:
   push:
     branches: [main]
@@ -72,6 +86,9 @@ jobs:
           exit $missing
 
   build:
+    # ON DEMAND ONLY — see the header. Images are built locally now (README,
+    # "Building"); this is the clean-room second opinion, not the factory.
+    if: github.event_name == 'workflow_dispatch'
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 60

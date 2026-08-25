@@ -22,8 +22,24 @@ sudo ./build.sh            # → out/nidara-$(cat VERSION)-x86_64.iso
 
 `build.sh` imports and locally signs the `nidara-repo` key first: the profile
 registers that repo with `SigLevel = Required`, so an unsigned build host
-refuses to pull the desktop. CI (`.github/workflows/build-iso.yml`) runs the
-same script in an Arch container and uploads the ISO as an artifact.
+refuses to pull the desktop.
+
+**Images are built locally, not in CI** (decided 2026-08-25). CI keeps the `lint`
+job on every push — seconds, and it catches the syntax error that would otherwise
+die twelve minutes into a container — and the `build` job is `workflow_dispatch`
+only, a clean-room second opinion when a local build does something odd.
+
+The numbers behind that, from the last CI run: **12.3 min of mkarchiso, of which
+only 2.4 min is `pacstrap`.** The rest is squashfs `zstd -19` — CPU, not network.
+A 4-vCPU runner is the worst machine available for that, and it hands back a
+2.2 GB artifact instead of a file the VM harness can boot.
+
+And the "clean Arch" worry does not apply to the image: `profiledef.sh` sets
+`pacman_conf="pacman.conf"`, so the airootfs is pacstrapped from the PROFILE's
+repo list (Arch's repos + `[nidara]`). A host running an Arch derivative
+contributes `mkarchiso` and a keyring — none of its own packages reach the image.
+
+Needs ~10 GiB free for the work dir, and root.
 
 The image's version is the PRODUCT's, and it is **declared, not derived**: it
 lives in `VERSION` at the root of this repo, `profiledef.sh` reads it for the
