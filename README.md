@@ -189,6 +189,37 @@ installed but not enabled, and QEMU's `screendump` does not work with the
 `virtio-gpu-gl` device Hyprland needs. Without the serial line, a boot that ends
 in a black screen tells the host nothing at all.
 
+## Looking at the live session in QEMU (2026-08-25)
+
+**Nobody had ever SEEN this medium run.** It was verified as *running* — greetd active, Hyprland
+up, layer surfaces mapped — and that was being read as "it draws". It was not: the compositor was
+failing to render at all, and both cameras were blamed for it (QMP `screendump` returned pure
+black, `grim` hung). Three distinct failures, in order, each measured against the log:
+
+1. **`eglCreateImageKHR … EGL_BAD_ALLOC: createImageFromDmaBufs failed`**, thousands of times.
+   Fix: give the guest *blob resources*, which need a shared memory backend:
+   `-object memory-backend-memfd,id=mem,size=6G,share=on -machine q35,accel=kvm,memory-backend=mem`
+   plus `-device virtio-gpu-gl-pci,blob=true`. Confirm in the guest with
+   `dmesg | grep features:` — it must say `+virgl … +resource_blob`.
+2. **`verifyDestinationDMABUF: FAIL, format is external-only` → `Backend requires blit, but blit
+   failed`.** This one survives `AQ_NO_MODIFIERS=1` (which was verified to actually reach the
+   process, in `/proc/<pid>/environ` — an env var set in `/etc/environment` does NOT arrive).
+   What clears it is a different QEMU display path: **`-display gtk,gl=on`** instead of
+   `egl-headless`. With that, the log shows zero blit and zero dmabuf errors.
+3. **Frames still arrive only occasionally.** After a session restart the first frame renders and
+   `grim` captures it; subsequent captures come back as a uniform black 4 KB PNG even though
+   `hyprctl layers` lists `nidara-bar`, `nidara-dock`, `nidara-island` and `awww-daemon` at
+   `a: 1`, with `reserved: 0 40 0 100`. So a QEMU run is good enough to prove the medium BOOTS and
+   COMPOSES; it is not a reliable way to look at it. **For appearance, boot the ISO on real
+   hardware.**
+
+Getting a shell on the live medium without typing into the window: `sshd` is installed but not
+enabled and `root` has an empty password, so drive the console over QMP `send-key` —
+`ctrl+alt+f2` reaches a getty (the desktop owns tty1), log in as `root`, then authorise a key and
+`systemctl start sshd`. ⚠️ It is a live medium: every reboot loses that, and `/etc/environment`
+with it. ⚠️ `pgrep -f <iso name>` matches your own shell; get QEMU's pid with `fuser` on the
+pflash vars file.
+
 ## Known gaps
 
 - **No graphical installer yet** — decided but not written; `archinstall` from a
