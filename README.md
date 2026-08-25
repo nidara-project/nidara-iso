@@ -191,42 +191,42 @@ in a black screen tells the host nothing at all.
 
 ## Looking at the live session in QEMU (2026-08-25)
 
-**Nobody had ever SEEN this medium run.** It was verified as *running* — greetd active, Hyprland
-up, layer surfaces mapped — and that was being read as "it draws". It was not: the compositor was
-failing to render at all, and both cameras were blamed for it (QMP `screendump` returned pure
-black, `grim` hung). Three distinct failures, in order, each measured against the log:
+It works, and the whole desktop is there — wallpaper, bar, dock, app grid. The line that matters
+is the harness's canonical one, and **`-vga none` is the load-bearing part**:
 
-1. **`eglCreateImageKHR … EGL_BAD_ALLOC: createImageFromDmaBufs failed`**, thousands of times.
-   Fix: give the guest *blob resources*, which need a shared memory backend:
-   `-object memory-backend-memfd,id=mem,size=6G,share=on -machine q35,accel=kvm,memory-backend=mem`
-   plus `-device virtio-gpu-gl-pci,blob=true`. Confirm in the guest with
-   `dmesg | grep features:` — it must say `+virgl … +resource_blob`.
-2. **`verifyDestinationDMABUF: FAIL, format is external-only` → `Backend requires blit, but blit
-   failed`.** This one survives `AQ_NO_MODIFIERS=1` (which was verified to actually reach the
-   process, in `/proc/<pid>/environ` — an env var set in `/etc/environment` does NOT arrive).
-   What clears it is a different QEMU display path: **`-display gtk,gl=on`** instead of
-   `egl-headless`. With that, the log shows zero blit and zero dmabuf errors.
-3. **And then the screen stays black anyway.** With both error classes at zero, one frame rendered
-   once — a `grim` capture showing the bar drawn correctly, brand mark, workspace pill and the
-   right-hand cluster — and nothing after it. Five forced redraws returned a uniform black 4 KB
-   PNG each time, while `hyprctl layers` listed `nidara-bar`, `nidara-dock`, `nidara-island` and
-   `awww-daemon` at `a: 1` with `reserved: 0 40 0 100`.
+```bash
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 6G \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
+  -drive if=pflash,format=raw,file=$HOME/VMs/iso-vars.fd \
+  -cdrom out/nidara-*.iso -boot d \
+  -vga none -device virtio-gpu-gl -display gtk,gl=on \
+  -device virtio-net,netdev=n0 -netdev user,id=n0,hostfwd=tcp::2222-:22 \
+  -device qemu-xhci -device usb-tablet
+```
 
-   ⚠️ **And it is not the capture path.** QEMU's own window, photographed from the host, is black
-   too — with `fgconsole` reporting VT 1 (the desktop's, not the console's) and the compositor's
-   log clean. Forcing `LIBGL_ALWAYS_SOFTWARE=1` and `GSK_RENDERER=cairo` into the session (both
-   verified to reach the process) changes nothing.
+⚠️ **Drop `-vga none` and you get a black screen that looks exactly like a broken image.** QEMU
+adds its default VGA device, the guest ends up with TWO display devices, and the window — and
+`screendump` with it — shows the emulated VGA while Hyprland renders on the virtio-gpu. The tell
+is that a text console (`ctrl+alt+f2`) IS visible while the desktop is not, and that `dmesg`
+mentions `simple-framebuffer` alongside `virtio-gpu-pci`. Hours were spent on that before the
+harness's own README turned out to have the answer in it.
 
-   **So: a QEMU run proves the medium BOOTS and COMPOSES, and that is all it proves. To see what
-   this looks like, boot the ISO on real hardware.** Do not read "layers mapped" as "drawn" — that
-   inference is what had this medium recorded as verified for weeks.
+The failures chased along the way are all downstream of the same mistake and do not need fixing:
+`createImageFromDmaBufs failed`, then `verifyDestinationDMABUF: FAIL, format is external-only` →
+`Backend requires blit, but blit failed`, on a compositor that had been handed the wrong device.
+`AQ_NO_MODIFIERS=1` does not help, and neither does forcing software GL into the session.
+
+**A capture, though, still has to come from the guest, not from QEMU.** With `gl=on` the scanout
+is a dmabuf and QMP `screendump` cannot read it (it writes nothing at all). Use `grim` inside the
+session — or photograph QEMU's window from the host.
 
 Getting a shell on the live medium without typing into the window: `sshd` is installed but not
 enabled and `root` has an empty password, so drive the console over QMP `send-key` —
 `ctrl+alt+f2` reaches a getty (the desktop owns tty1), log in as `root`, then authorise a key and
 `systemctl start sshd`. ⚠️ It is a live medium: every reboot loses that, and `/etc/environment`
-with it. ⚠️ `pgrep -f <iso name>` matches your own shell; get QEMU's pid with `fuser` on the
-pflash vars file.
+with it (which pam_env does not apply to the greetd session anyway — put session env in
+`/etc/profile.d/`, which `source_profile = true` does read). ⚠️ `pgrep -f <iso name>` matches your
+own shell; get QEMU's pid with `fuser` on the pflash vars file.
 
 ## Known gaps
 
