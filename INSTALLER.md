@@ -157,6 +157,24 @@ prototype is not thrown away when the UI exists:
   for: **a dry run on a machine without the target disk proves nothing** —
   `archinstall` skips a device it cannot find and exits 0 on an empty layout.
 
+## What exists today (2026-08-25)
+
+- **The frame**, in `nidara-desktop/ui/installer/`: the window, the step flow, the base-config
+  reader, and one placeholder step that says which screens are missing rather than miming them.
+  It builds and runs on any Nidara session; `packaging/nidara/PKGBUILD` emits `nidara-installer`
+  beside `nidara`.
+- **The product half**, here: `profile/airootfs/usr/share/nidara-installer/base.json` — the
+  prototype's config with the machine's and the person's answers taken out (hostname, timezone,
+  locale; the disk was never in it). What is left is what the PRODUCT decides: systemd-boot, the
+  `linux` kernel, NetworkManager, zram, and the four `custom_commands` that trust the repo key,
+  install `nidara` + `nidara-apps`, land `nidara-release` and run `nidara-setup`.
+  ⚠️ The last of those still carries `SUDO_USER=nidara`, a hardcoded user name from the
+  prototype. It keeps the by-hand path working today, and the front-end MUST rewrite it with the
+  account it just created — a base config cannot know that answer.
+- **Not on the image yet:** `packages.x86_64` does not list `nidara-installer`. The package is
+  built from a nidara-desktop TAG by nidara-repo, so it does not exist until the next desktop
+  release is cut and pinned; naming it earlier would fail every ISO build in between.
+
 ## Not decided yet
 
 - What the installer's version number is. It is built from a desktop tag but it
