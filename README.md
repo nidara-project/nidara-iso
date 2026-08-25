@@ -71,20 +71,18 @@ file-conflict check runs before any scriptlet could clear it. Afterwards the fil
 is ours and upgrades need no flags — measured, along with the fact that the
 tmpfiles line is `L` and not `L+`, so it never takes the path back.
 
-### Tagged, not yet published (2026-08-25)
+### Published (2026-08-25)
 
-`v0.1.0` is tagged here — that tag is what `nidara-repo` pins to build `nidara-release`,
-since the recipe travels inside the tag rather than being committed in the repo that
-builds it. **`NIDARA_ISO_REF` over there is still empty, so the package is not published
-and no system carries this identity yet.** Setting it is one line, and it is what makes the
-identity real.
+`v0.1.0` is tagged here, `nidara-repo` pins that tag, and `nidara-release-0.1.0-1` is built,
+signed and served from the repository. A system installed from now on answers **Nidara 0.1.0**
+in `/etc/os-release`, and the desktop's About shows it beside the desktop's own version.
 
-Nothing consumes `v0.1.0` in the meantime, so it is not frozen the way a published tag is:
-if the package changes before the pin is set, that tag can be moved, or superseded by
-`0.1.1` — the lockstep gate wants `pkgver`, `VERSION` and the tag to agree, and does not
-care which number they agree on. Once it IS published, correcting the package means cutting
-a product version, because there is no `pkgrel` to bump without moving a tag somebody has
-already downloaded.
+The recipe travels inside the tag rather than being committed in the repo that builds it, so
+cutting the next product version is: bump `VERSION` and the PKGBUILD's `pkgver` in one commit,
+tag, then move `NIDARA_ISO_REF`. The lockstep gate refuses to publish if those three disagree.
+
+⚠️ **The tag is frozen now that something consumes it.** Correcting this package means cutting a
+new product version — there is no `pkgrel` to bump without moving a tag people may already have.
 
 ## What booting it gives you
 
