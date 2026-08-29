@@ -34,7 +34,7 @@ install anything.
 | Nidara repo | `nidara-repo` | — | The pacman repository both consume |
 | Curated apps | `nidara-repo` | `nidara-apps` | The applications the product ships with |
 | System policy | `nidara-iso` | `nidara-system` | What Nidara changes about Arch itself (boot, splash, defaults) |
-| Identity | `nidara-iso` | `nidara-release` | `/etc/os-release`: the product's **name** (exists since 2026-08-25) |
+| Identity | `nidara-iso` | `nidara-release` | `/etc/os-release`: the product's **name**, and where it comes from (exists since 2026-08-25) |
 
 ## Four layers, and the third one had no owner
 
@@ -47,7 +47,7 @@ whatever happened to get typed.
 | **1. The desktop** | What does the desktop need to RUN? | `nidara` |
 | **2. The composition** | What makes a fresh machine USABLE? | `nidara-apps` |
 | **3. System policy** | What does Nidara change about **Arch**? | `nidara-system` |
-| **4. Identity** | What does this computer call itself? | `nidara-release` |
+| **4. Identity** | What does this computer call itself, and where does it get Nidara from? | `nidara-release` |
 
 Layers 1, 2 and 4 were designed. **Layer 3 arrived without anyone deciding it should exist**, over
 four days in August 2026 (`nidara-desktop` #284 and #285), and because it had no home it settled in
@@ -85,9 +85,41 @@ the hardware work of rung 3 turns up. The installer keeps only what is genuinely
 be packaged: the kernel parameters in this machine's loader entries, and the loader timeout that
 depends on whether Windows is present.
 
-⚠️ **A separate package from `nidara-release` on purpose.** Identity is one file and should stay
-trivial to reason about; policy is going to grow. They also fail differently — a bad identity
-package renames your OS, a bad policy package can stop it booting.
+### Why this is not merged into `nidara-release`
+
+Both packages exist for the same reason — they are the product acting on Arch, and neither is ever
+installed by `install.sh` — and once the version left `nidara-release` (below), it is one static
+file. The question of merging them is therefore a fair one, and it was asked. **The answer is no,
+and the reason is bootstrap order rather than tidiness:**
+
+> **`nidara-release`** is what must exist **before** anything Nidara can be installed: the name,
+> and the repository it comes from. **Zero dependencies, by obligation.**
+> **`nidara-system`** is what Nidara changes **once it is installed**: the policy, with the
+> dependencies the policy needs.
+
+Three things follow, and each one is what actually breaks if they are one package:
+
+- **Identity would hang off a dependency chain.** `nidara-system` depends on `plymouth`, and will
+  depend on more. A machine's *name* must not become contingent on a binary package resolving.
+- **`nidara-system` is the package you remove when it breaks.** It is precisely what somebody
+  boots a live medium to uninstall after a boot-policy change left them without a boot. That
+  recovery must not also un-name their operating system.
+- **It is the convention, and conventions are load-bearing for the people who look.** Ubuntu keeps
+  `/etc/os-release` in `base-files` and its defaults in `ubuntu-settings`; Fedora has
+  `fedora-release`, which — for exactly the bootstrap reason above — also carries the repository
+  definitions. Somebody who knows Linux will look for `nidara-release`.
+
+⚠️ **The honest counterweight, so this is not read as more than it is:** both build from the same
+`NIDARA_ISO_REF` tag, so keeping them apart costs one PKGBUILD directory and no extra pin, release
+step or pin runbook. Merging would save almost nothing, which is what makes the argument above
+sufficient rather than merely preferable. *(An earlier draft justified the split by saying the two
+"fail differently". That was an observation, not an argument, and it is replaced by this.)*
+
+⚠️ **`nidara-release`'s `pkgver` has nothing left to track** once the product's version is gone —
+it was tracking exactly that. It becomes a plain counter, which is the house precedent already set
+by `nidara-apps` ("no upstream and no version of its own to track"), and it should be expected to
+sit still for a very long time. A package that never changes is the cheapest thing this project
+owns, not a smell.
 
 ⚠️ **`nidara-system` is what makes the word "rolling" in the next section TRUE rather than
 hopeful**, so it lands first. It owes two things the moment it exists: a pacman hook that
@@ -189,10 +221,28 @@ reaches an existing machine through pacman**, so it is never a reason to cut an 
 - the partition scheme and the Btrfs subvolume layout
 - the bootloader, and the kernel parameters in this machine's loader entries
 - the installer that made those choices
+- **the `[nidara]` section in the installed system's `pacman.conf`** — see below
 
 And one that is **half** of each, which is a trap: removing an application from `nidara-apps`
 does not uninstall it from an existing machine. The dependency goes away and the package stays,
 orphaned. Additions travel; removals do not.
+
+⚠️ **The repository definition has no owner, and that is the same disease as layer 3** (found
+2026-08-30). No package puts `[nidara]` on the installed system: the target's `pacman.conf` is a
+copy of the live medium's, and it comes along for the ride. That is correct as far as it goes —
+`installer-prototype/README.md` records why `custom_repositories` was *removed*, and it was right
+to remove it: archinstall appends to the live config AND to the target's copy of it, producing
+three `[nidara]` sections and `could not register 'nidara' database` on every pacman invocation of
+the installed system, forever. But the consequence is that **if the repository's URL, its signing
+key or its `SigLevel` ever change, no existing machine finds out.**
+
+The fix is the one Arch uses for its own mirrors and it is not "package the section": `pacman.conf`
+belongs to `pacman` and is a `backup=` file, so a package cannot own that block. What a package
+CAN own is the file the block points at — `Include = /etc/pacman.d/nidara-mirrorlist` in place of
+today's direct `Server =`. The section stays inherited from the copied config; the part that
+actually changes gets an owner and an update route. That owner is `nidara-release`, by the
+bootstrap rule above: the repository has to be reachable before anything with dependencies can be
+installed from it.
 
 ⚠️ **There is no offline installation, and every install therefore produces a current machine**
 (measured 2026-08-30). `base.json` configures no local repository — `custom_repositories: []`, no
@@ -284,7 +334,11 @@ date"). They are states the product is in, and each one is reached by an image t
       package, and `install.sh` stops setting a boot theme on somebody else's machine.
    3. `bootloader.ts` shrinks to the per-machine residue: kernel parameters in the loader entries
       and the Windows-aware timeout.
-   4. `nidara-release` drops `VERSION`/`VERSION_ID`, and images move to dates.
+   4. `nidara-release` drops `VERSION`/`VERSION_ID`, and images move to dates. Its `pkgver`
+      becomes a plain counter, the way `nidara-apps`' already is.
+   5. `nidara-release` takes ownership of `/etc/pacman.d/nidara-mirrorlist`, and the medium's
+      `pacman.conf` swaps its direct `Server =` for an `Include =` of it — so the repository's
+      address stops being a thing only new installs can learn.
 3. ~~**The version of the first public image.**~~ ~~**DECIDED 2026-08-25: `0.1.0`**~~
    **SUPERSEDED 2026-08-30: images carry a date, not a version** — see "The machine is rolling,
    the image has a date". The question this asked no longer has an answer because it no longer has
