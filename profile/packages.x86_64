@@ -38,7 +38,9 @@ man-pages
 terminus-font
 
 # ── the desktop ──────────────────────────────────────────────────────────────
-# The only two packages on this list that do not come from Arch's own repos.
+# Two of the three packages on this list that do not come from Arch's own repos.
+# The third is `nidara-installer`, down in "installing", because that is what it
+# is — see the note there.
 #
 # They answer two different questions, which is why they are two packages and
 # not one. `nidara` is what the desktop needs to RUN — without it there is no
@@ -52,10 +54,26 @@ terminus-font
 # tools, VM guest agents. None of it belongs on the machine this ISO installs —
 # that system gets `nidara` + `nidara-apps` and nothing else from here. Keeping
 # the two apart is why the browser is no longer a line in this file.
+#
+# ⚠️ These two, plus `nidara-installer` below, are the only lines here that come
+# from a repository WE publish — which makes them the only ones that can be
+# missing for a reason other than a typo: `nidara-repo` serves whatever release
+# `pins.env` points at, so a package that exists in `nidara-desktop`'s tree but
+# not in the pinned tag is simply not there. `build.sh` checks for exactly that
+# before mkarchiso does, because "target not found" does not say it.
 nidara
 nidara-apps
 
 # ── installing ───────────────────────────────────────────────────────────────
+# `nidara-installer` is the GTK front-end the live session actually opens; it is
+# HERE and not in the desktop section on purpose. It is the medium's own tool,
+# like `archinstall` two lines down, and the one package of this whole file that
+# must never reach the machine being installed — a system somebody is using must
+# not carry a program whose job is to erase a disk. That is the entire reason
+# `nidara-desktop`'s PKGBUILD is a split package: `nidara` and `nidara-installer`
+# are built together and shipped apart, and this file is the only place in
+# the world that names the second.
+nidara-installer
 arch-install-scripts
 archinstall
 btrfs-progs
