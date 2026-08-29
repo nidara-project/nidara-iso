@@ -44,8 +44,15 @@ Needs ~10 GiB free for the work dir, and root.
 The image's version is the PRODUCT's, and it is **declared, not derived**: it
 lives in `VERSION` at the root of this repo, `profiledef.sh` reads it for the
 ISO filename, and `packages/nidara-release/PKGBUILD` carries the same number
-into `/etc/os-release` on the system that gets installed. `PRODUCT.md` says why
-that number is not the desktop's and why neither derives from the other.
+into `/etc/os-release` on the system that gets installed.
+
+⚠️ **That scheme is superseded and this paragraph describes what the code still
+does, not what was decided.** On 2026-08-30 `PRODUCT.md` replaced it: a Nidara
+machine is rolling and carries no version, and images are named for the date
+they are built. The mechanics above change when that work is done — the order is
+in `PRODUCT.md`, open decision 2 — so until then this repo still builds a
+`VERSION`-named image. Read the decision record before adding anything that
+depends on the product having a number.
 
 ## Identity: the installed system says "Nidara", the live one says "(live)"
 
