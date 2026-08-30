@@ -92,7 +92,7 @@ loader timeout that depends on whether Windows is present.
 
 ⚠️ ~~a package in this repo, beside `nidara-release`~~ — **it lives in `nidara-repo` instead**
 (corrected 2026-08-30, the day after this paragraph was written). Two things were not known when
-it said "this repo", and both point the other way: `nidara-release` is here because its version WAS
+it said "this repo", and both point the other way: `nidara-release` was here because its version WAS
 the product's and had to lock to the image's tag, and that version is being removed, so the
 coupling that put it here applies to nothing else; and `nidara-repo` fetches this repository **by
 tag**, while the product's tagging scheme is precisely what is in flux. What settles it is the rule
@@ -143,11 +143,13 @@ Three things follow, and each one is what actually breaks if they are one packag
   `fedora-release`, which — for exactly the bootstrap reason above — also carries the repository
   definitions. Somebody who knows Linux will look for `nidara-release`.
 
-⚠️ **The honest counterweight, so this is not read as more than it is:** both build from the same
-`NIDARA_ISO_REF` tag, so keeping them apart costs one PKGBUILD directory and no extra pin, release
-step or pin runbook. Merging would save almost nothing, which is what makes the argument above
-sufficient rather than merely preferable. *(An earlier draft justified the split by saying the two
-"fail differently". That was an observation, not an argument, and it is replaced by this.)*
+⚠️ **The honest counterweight, so this is not read as more than it is:** ~~both build from the same
+`NIDARA_ISO_REF` tag~~ — that pin is gone and `nidara-release` moved to `nidara-repo` too, so the
+two now sit in the same directory, built the same way, from the same working tree. Keeping them
+apart costs one PKGBUILD directory and nothing else: no pin, no release step, no runbook. Merging
+would save almost nothing, which is what makes the argument above sufficient rather than merely
+preferable. *(An earlier draft justified the split by saying the two "fail differently". That was
+an observation, not an argument, and it is replaced by this.)*
 
 ⚠️ **`nidara-release`'s `pkgver` has nothing left to track** once the product's version is gone —
 it was tracking exactly that. It becomes a plain counter, which is the house precedent already set
@@ -192,9 +194,15 @@ So:
 | **Nidara Desktop** | **Yes** | semver, unchanged | It is software with features; this is the number that was always doing real work |
 
 **`nidara-release` survives and is still required** — without it the machine says "Arch Linux", and
-renaming the OS is the product's act, which is why it lives here and not in the desktop. What it
-loses is `VERSION` and `VERSION_ID`; `PRETTY_NAME` becomes `"Nidara"`. The desktop needs no change
-for this: `core/SystemInfo.ts` reads `PRETTY_NAME` and nothing else.
+renaming the OS is the product's act, which is why it is never the desktop's. What it loses is
+`VERSION` and `VERSION_ID`; `PRETTY_NAME` becomes `"Nidara"`. The desktop needed no change for
+this: `core/SystemInfo.ts` reads `PRETTY_NAME` and nothing else (checked, not assumed).
+
+⚠️ **It also left this repo.** Removing the version removed the only thing that tied the package to
+an image tag, and this repo stopped being tagged at all — which would have left it unpublishable
+where it was. It lives in `nidara-repo` now, beside `nidara-apps` and `nidara-system`, under the
+rule those two set: *nidara-repo holds the packages whose content must change without cutting a
+release of something else.*
 
 **What About shows instead**, and it is strictly more useful for the thing About is actually for:
 not one number that is the same everywhere, but the versions of `nidara-desktop`, `nidara-system` and
@@ -298,8 +306,9 @@ date"). They are states the product is in, and each one is reached by an image t
   The live image reaches the desktop; the installer produces a system that boots to the greeter;
   the identity package exists so the installed system is Nidara and not Arch.
 
-  **Done (2026-08-25):** `packages/nidara-release` is wired end to end and published — the machine
-  says "Nidara" instead of "Arch Linux", which was the whole clause.
+  **Done (2026-08-25):** `nidara-release` is wired end to end and published — the machine says
+  "Nidara" instead of "Arch Linux", which was the whole clause. *(The package moved to nidara-repo
+  on 2026-08-30 and stopped carrying a version; what it does for this rung is unchanged.)*
 
   **Not done, and it blocks the rung:** an image without a decided application set is a build
   artifact rather than a product, so open decision 1 below is a prerequisite and not a nicety.
@@ -375,8 +384,12 @@ date"). They are states the product is in, and each one is reached by an image t
       package, and `install.sh` stops setting a boot theme on somebody else's machine.
    3. `bootloader.ts` shrinks to the per-machine residue: kernel parameters in the loader entries
       and the Windows-aware timeout.
-   4. `nidara-release` drops `VERSION`/`VERSION_ID`, and images move to dates. Its `pkgver`
-      becomes a plain counter, the way `nidara-apps`' already is.
+   4. ✅ **DONE 2026-08-30** — `nidara-release` dropped `VERSION`/`VERSION_ID`, `PRETTY_NAME` is
+      `"Nidara"`, and `profiledef.sh` names the image for the day it is built. Its `pkgver` is a
+      plain counter (0.1.0 → 1, which `vercmp` reads as newer, so installed machines upgrade).
+      ▶️ Two things fell out that were not predicted: the package had to MOVE to `nidara-repo`,
+      because a package fetched from a tag cannot be published by a repo that is no longer
+      tagged; and `NIDARA_ISO_REF` plus its lockstep gate went with it, leaving one pin.
    5. `nidara-release` takes ownership of `/etc/pacman.d/nidara-mirrorlist`, and the medium's
       `pacman.conf` swaps its direct `Server =` for an `Include =` of it — so the repository's
       address stops being a thing only new installs can learn.
@@ -384,7 +397,9 @@ date"). They are states the product is in, and each one is reached by an image t
    **SUPERSEDED 2026-08-30: images carry a date, not a version** — see "The machine is rolling,
    the image has a date". The question this asked no longer has an answer because it no longer has
    a subject: the first public image is named for the day it is built. `VERSION` at the root of
-   this repo and `nidara-release`'s `pkgver` are what the change has to remove.
+   this repo and `nidara-release`'s `pkgver` are what the change has to remove. ✅ **Both removed
+   2026-08-30**: there is no `VERSION` file here any more, and the first public image will be
+   named for the day it is built.
 
 4. **Where the image is distributed from.** Open, and deliberately not answered by the
    constraint that raised it.

@@ -13,15 +13,24 @@ iso_name="nidara"
 iso_label="NIDARA_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
 iso_publisher="Nidara Project <https://github.com/nidara-project>"
 iso_application="Nidara live/install medium"
-# The PRODUCT's version, from the one file that declares it — so the download is
-# `nidara-0.1.0-x86_64.iso` and the system it installs says the same number back
-# (`/etc/os-release`, shipped by `packages/nidara-release`). It used to be the
-# build date, which named the build rather than the product and could not be
-# said out loud: "Nidara 2026.08.25" is not a version anybody declared.
+# The build DATE, which is what an image is: `nidara-2026.09.01-x86_64.iso`.
 #
-# `${BASH_SOURCE[0]}` because mkarchiso sources this file from wherever it was
-# invoked; the profile dir is not the cwd.
-iso_version="$(tr -d '[:space:]' < "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../VERSION")"
+# This was the product's version for five days (`0.1.0`, read from a VERSION file
+# at the root of this repo) and the version is gone — PRODUCT.md, "The machine is
+# rolling, the image has a date". The short form of the argument: an image never
+# changes after it is published, so a name that fixes it in time can stay true
+# forever, while the MACHINE it installs converges on the newest of every layer
+# within a day and is not a release of anything.
+#
+# ⚠️ Not "just the build date", which is what this was BEFORE 0.1.0 and what the
+# objection to it was: a name that says which build it is, and nothing a person
+# could quote. That objection was answered the other way round — by moving the
+# announceable number onto the thing that genuinely is rewritten (the desktop's
+# `nidara-desktop` semver), not by minting one for the image.
+#
+# SOURCE_DATE_EPOCH so the name matches `iso_label` above and a reproducible
+# build gets a reproducible name; mkarchiso exports it.
+iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 
 # `install_dir` stays "arch": it is the directory name inside the image that the
 # archiso initramfs hook searches for, and the bootloader entries interpolate it
