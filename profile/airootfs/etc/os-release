@@ -6,17 +6,23 @@
 #
 # This file is the LIVE medium's alone, and it is deliberately not a package.
 #
-# The installed system gets its identity from `nidara-release` (built from
-# ../../../packages/nidara-release), which OWNS /etc/os-release so the product's
-# version can travel by `pacman -Syu`. That package is not on this image: an
-# airootfs overlay would overwrite the file it owns and leave `pacman -Qkk`
-# calling the medium tampered with for as long as it runs.
+# The installed system gets its identity from `nidara-release`, which OWNS
+# /etc/os-release so a correction can travel by `pacman -Syu`. That package lives
+# in nidara-repo (it was in ../../../packages/ until 2026-08-30) and is NOT on
+# this image: an airootfs overlay would overwrite the file it owns and leave
+# `pacman -Qkk` calling the medium tampered with for as long as it runs.
 #
-# So the two files differ on purpose, in two ways. PRETTY_NAME says "(live)",
-# which is worth being able to see in a bug report; and there is NO VERSION here,
-# because the product's number is declared in one place (../../../VERSION) and a
-# hand-maintained copy is a copy that can disagree. The medium's own version is
-# the one in its filename.
+# So the two files differ on purpose, in one way that matters: PRETTY_NAME says
+# "(live)", which is worth being able to see in a bug report. Neither carries a
+# VERSION — the machine is rolling and `BUILD_ID` is the whole answer (PRODUCT.md,
+# "The machine is rolling, the image has a date"). This one used to explain its
+# missing VERSION by pointing at a ../../../VERSION file; that file is gone, and
+# there is no number to point at any more.
+#
+# ⚠️ The image's date is NOT written here and must not be: `mkarchiso` appends
+# `IMAGE_ID` and `IMAGE_VERSION` to this file at build time, and IMAGE_VERSION is
+# `iso_version` from profiledef.sh — the build date. A hand-written copy would be
+# a second answer to a question archiso already answers.
 NAME="Nidara"
 PRETTY_NAME="Nidara (live)"
 ID=nidara
