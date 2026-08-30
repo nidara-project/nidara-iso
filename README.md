@@ -78,6 +78,35 @@ file-conflict check runs before any scriptlet could clear it. Afterwards the fil
 is ours and upgrades need no flags — measured, along with the fact that the
 tmpfiles line is `L` and not `L+`, so it never takes the path back.
 
+### Where Nidara comes from travels the same way
+
+`nidara-release` carries a second file, `/etc/pacman.d/nidara-mirrorlist`, and the
+live medium's `pacman.conf` reaches `[nidara]` through an `Include` of it rather
+than a literal `Server =`. Same reason as the name: a `Server =` line sits in
+`/etc/pacman.conf`, which no package owns, so the address was something **only a
+new install could learn** — if this repository ever moved, every machine already
+installed would sit on a 404 with no way to be told. It is the same shape Arch
+uses for its own mirrors, and the reason `Include = /etc/pacman.d/mirrorlist` is
+what every Arch machine has.
+
+⚠️ **The two `pacman.conf` files in this repo are no longer identical, and making
+them identical again breaks one of them.** `profile/pacman.conf` is the BUILD
+config — `mkarchiso` and `pacstrap` read it on the build host, which has no
+Nidara file in `/etc/pacman.d/` and should not — so it keeps a literal
+`Server =`. `profile/airootfs/etc/pacman.conf` is the live system's, copied
+verbatim onto the installed machine by archinstall, and it uses the `Include`.
+
+⚠️ **A missing Include target is not a degraded repo — it is a hard parse error
+on every pacman invocation**, `pacman-key` included, which is how the target
+trusts this repo's key in the first place. So the file has to exist at every
+moment, and three things make sure it does: the medium ships it in its airootfs,
+the installer writes it to the target as its **first** command (before anything
+runs pacman there), and `nidara-release` then adopts it — which is what the
+second `--overwrite` on that package's install line is for.
+
+`build.sh` checks both of those before `mkarchiso` starts: that the three places
+carrying the address agree, and that the live config actually parses.
+
 ### The package is not in this repo (moved 2026-08-30)
 
 ⚠️ **`nidara-release` lives in
@@ -144,8 +173,10 @@ to ignore the lid switch for the same reason.
 profile/                 an ordinary archiso profile
   profiledef.sh          image identity, boot modes, compression
   packages.x86_64        releng's list, minus the rescue DVD, plus the desktop
-  pacman.conf            Arch's repos + [nidara]
+  pacman.conf            Arch's repos + [nidara] — the BUILD host's copy
   airootfs/              the overlay: identity, systemd, the live setup script
+    etc/pacman.conf        the LIVE system's, and the installed one's: Include
+    etc/pacman.d/…         the mirrorlist that Include names
   syslinux/ efiboot/     BIOS and UEFI boot entries
 build.sh                 key trust + mkarchiso
 ```

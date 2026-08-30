@@ -21,9 +21,10 @@
     "custom_repositories": []
   },
   "custom_commands": [
+    "set -e; echo '>> [nidara] the repository has an address'; install -d /etc/pacman.d; { echo '# Written by the Nidara installer, and adopted by the nidara-release package'; echo '# moments later \u2014 which is what makes this address correctable by pacman -Syu.'; echo 'Server = https://nidara-project.github.io/nidara-repo/$arch'; } > /etc/pacman.d/nidara-mirrorlist",
     "set -e; echo '>> [nidara] trusting the repo signing key'; curl -fsSL https://nidara-project.github.io/nidara-repo/nidara.gpg | pacman-key --add -; pacman-key --lsign-key 80B0AC8C36A43611A8619959B06B716279F755A9",
     "set -e; echo '>> installing the desktop'; pacman -Sy --noconfirm nidara-desktop nidara-apps",
-    "set -e; echo '>> [nidara] the system says its own name'; pacman -S --noconfirm --overwrite /etc/os-release nidara-release",
+    "set -e; echo '>> [nidara] the system says its own name'; pacman -S --noconfirm --overwrite /etc/os-release --overwrite /etc/pacman.d/nidara-mirrorlist nidara-release",
     "set -e; echo '>> nidara-setup'; SUDO_USER=nidara nidara-setup"
   ]
 }
