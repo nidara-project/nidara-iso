@@ -41,6 +41,28 @@ contributes `mkarchiso` and a keyring — none of its own packages reach the ima
 
 Needs ~10 GiB free for the work dir, and root.
 
+⚠️ **A successful build ends with three keyring errors, and they are the design.**
+
+```
+[mkarchiso] INFO: Creating a list of installed packages on live-enviroment...
+warning: Public keyring not found; have you run 'pacman-key --init'?
+error: nidara: key "80B0AC8C36A43611A8619959B06B716279F755A9" is unknown
+error: keyring is not writable
+```
+
+The last step queries the image with `pacman -Q --sysroot`, and the image has no
+keyring: `/etc/pacman.d/gnupg` is a **tmpfs mount made at boot**, so at build
+time it does not exist. The sync databases are still there, `nidara.db.sig`
+among them, and `DatabaseOptional` means *verify the signature if present* — so
+pacman looks for our key in a keyring that has not been created yet. The package
+list is written correctly, and the live session gets the key from
+`nidara-live-setup` once `pacman-init.service` has made the keyring.
+
+**What a real signature failure looks like is no ISO at all.** `SigLevel = Required`
+aborts `pacstrap`; it never warns and continues. If `out/` has an image and
+`pkglist.x86_64.txt` names the three `nidara-*` packages, every signature was
+verified.
+
 **The image carries a date and the machine carries nothing** — `profiledef.sh`
 builds `nidara-2026.09.01-x86_64.iso` from `SOURCE_DATE_EPOCH`, and there is no
 `VERSION` file here to bump. An image never changes after it is published, so a
