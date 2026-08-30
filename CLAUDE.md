@@ -78,13 +78,31 @@ When the test VM is running:
    `nidara-release` (the second `--overwrite` on that install line). `build.sh` checks the live
    config parses and that the three copies of the address agree.
 
-4. **`custom_repositories` must NOT be duplicated in `base.json`:**
+4. **Three keyring errors at the END of every build are normal — do not chase them:**
+   ```
+   [mkarchiso] INFO: Creating a list of installed packages on live-enviroment...
+   warning: Public keyring not found; have you run 'pacman-key --init'?
+   error: nidara: key "80B0AC8C36A43611A8619959B06B716279F755A9" is unknown
+   error: keyring is not writable
+   ```
+   `_make_pkglist` runs `pacman -Q --sysroot` **into the airootfs**, which has no keyring: the
+   medium's `/etc/pacman.d/gnupg` is a **tmpfs mount created at boot** (`etc-pacman.d-gnupg.mount`
+   + `pacman-init.service`), so at build time the directory does not exist at all. The sync dbs are
+   still there at that point, `nidara.db.sig` among them, and `DatabaseOptional` means *verify the
+   signature if it is present* — so pacman looks for our key in a keyring that is not there yet.
+   Nothing is wrong and nothing is skipped: `pkglist.x86_64.txt` is written correctly, and the live
+   session gets the key from `nidara-live-setup` after `pacman-init` has made the keyring.
+   **The proof a package signature actually FAILED is the absence of an ISO** — `SigLevel = Required`
+   aborts `pacstrap`, it does not warn and continue. Reproducible without root:
+   `pacman -Q --config <conf with [nidara]> --dbpath <dir with nidara.db+.sig> --gpgdir <empty dir>`.
+
+5. **`custom_repositories` must NOT be duplicated in `base.json`:**
    The live environment's `pacman.conf` already registers `[nidara]`. Adding it to `custom_repositories` in archinstall's JSON creates duplicate sections on the target system and breaks pacman invocations with database registration errors.
 
-5. **`SUDO_USER` rewriting in `custom_commands`:**
+6. **`SUDO_USER` rewriting in `custom_commands`:**
    `base.json` contains `SUDO_USER=nidara nidara-setup`. The installer front-end must rewrite `SUDO_USER` to the user account created during installation so first-boot configuration targets the correct user.
 
-6. **What NOT to touch without explicit user alignment:**
+7. **What NOT to touch without explicit user alignment:**
    - The repository signing key fingerprint (`80B0AC8C36A43611A8619959B06B716279F755A9`).
    - The boot UUID scheme or volume label.
    - Default application choices or product packages (refer to `PRODUCT.md`).
