@@ -17,7 +17,7 @@ theirs, and `/etc/os-release` says both.
 
 ```bash
 sudo pacman -S archiso
-sudo ./build.sh            # → out/nidara-$(cat VERSION)-x86_64.iso
+sudo ./build.sh            # → out/nidara-2026.09.01-x86_64.iso (today's date)
 ```
 
 `build.sh` imports and locally signs the `nidara-repo` key first: the profile
@@ -41,18 +41,18 @@ contributes `mkarchiso` and a keyring — none of its own packages reach the ima
 
 Needs ~10 GiB free for the work dir, and root.
 
-The image's version is the PRODUCT's, and it is **declared, not derived**: it
-lives in `VERSION` at the root of this repo, `profiledef.sh` reads it for the
-ISO filename, and `packages/nidara-release/PKGBUILD` carries the same number
-into `/etc/os-release` on the system that gets installed.
+**The image carries a date and the machine carries nothing** — `profiledef.sh`
+builds `nidara-2026.09.01-x86_64.iso` from `SOURCE_DATE_EPOCH`, and there is no
+`VERSION` file here to bump. An image never changes after it is published, so a
+name that fixes it in time stays true forever; the machine it installs converges
+on the newest of every layer within a day and is not a release of anything.
 
-⚠️ **That scheme is superseded and this paragraph describes what the code still
-does, not what was decided.** On 2026-08-30 `PRODUCT.md` replaced it: a Nidara
-machine is rolling and carries no version, and images are named for the date
-they are built. The mechanics above change when that work is done — the order is
-in `PRODUCT.md`, open decision 2 — so until then this repo still builds a
-`VERSION`-named image. Read the decision record before adding anything that
-depends on the product having a number.
+`PRODUCT.md`, "The machine is rolling, the image has a date", is the record — and
+the short version of why the previous scheme (a declared `0.1.0`) lasted five
+days: `nidara-release` carries no `backup=`, so every machine that had run
+`-Syu` reported the newest number published, and a field identical across the
+whole fleet informs nobody. The announceable number did not disappear, it moved
+to the thing that genuinely gets rewritten: `nidara-desktop`'s own semver.
 
 ## Identity: the installed system says "Nidara", the live one says "(live)"
 
@@ -60,16 +60,16 @@ depends on the product having a number.
 **not on the image** — the installer puts it on the target. That split is on
 purpose, and both halves are load-bearing:
 
-- **On the target**, identity has to arrive as a package so it can be *updated*.
-  A version written into a file by an installer names the image somebody
-  downloaded and is stale the day after; this one moves with `pacman -Syu`.
+- **On the target**, identity arrives as a package so it can be *corrected*.
+  Nothing an installer writes has a route back to the machines it already wrote
+  to; the support URLs, the logo and the ANSI colour in that file all move with
+  `pacman -Syu`. (Its VERSION used to be the argument here. There is none now —
+  see above — and the rest of the file is reason enough.)
 - **On the live medium**, `profile/airootfs/etc/os-release` says
-  `PRETTY_NAME="Nidara (live)"` and carries no version at all. If the package
-  were on the image too, the overlay would overwrite a file the package owns and
-  `pacman -Qkk` would report the medium as tampered with, forever — the exact
-  flaw of the pacman-hook approach the package's own comments describe. And the
-  live file carries no number so that there is only ONE place a version is
-  written down.
+  `PRETTY_NAME="Nidara (live)"`. If the package were on the image too, the
+  overlay would overwrite a file the package owns and `pacman -Qkk` would report
+  the medium as tampered with, forever — the exact flaw of the pacman-hook
+  approach the package's own comments describe.
 
 ⚠️ Installing that package the first time needs `--overwrite /etc/os-release`,
 and that is not carelessness: systemd's `tmpfiles.d/etc.conf` leaves a symlink at
@@ -78,18 +78,23 @@ file-conflict check runs before any scriptlet could clear it. Afterwards the fil
 is ours and upgrades need no flags — measured, along with the fact that the
 tmpfiles line is `L` and not `L+`, so it never takes the path back.
 
-### Published (2026-08-25)
+### The package is not in this repo (moved 2026-08-30)
 
-`v0.1.0` is tagged here, `nidara-repo` pins that tag, and `nidara-release-0.1.0-1` is built,
-signed and served from the repository. A system installed from now on answers **Nidara 0.1.0**
-in `/etc/os-release`, and the desktop's About shows it beside the desktop's own version.
+⚠️ **`nidara-release` lives in
+[nidara-repo](https://github.com/nidara-project/nidara-repo/tree/main/packages/nidara-release)**,
+beside `nidara-apps` and `nidara-system`. It was here, and the reason was the
+version: that number was the product's, so the only honest way to keep it from
+drifting was to make cutting a product version mean tagging THIS repo — which
+bought a second pin and a lockstep gate over there.
 
-The recipe travels inside the tag rather than being committed in the repo that builds it, so
-cutting the next product version is: bump `VERSION` and the PKGBUILD's `pkgver` in one commit,
-tag, then move `NIDARA_ISO_REF`. The lockstep gate refuses to publish if those three disagree.
+The version is gone, and so is the coupling. **This repo is no longer tagged at
+all**, which would have left the package unpublishable where it was. What decides
+its new home is the rule its two neighbours already set: *nidara-repo holds the
+packages whose content must change without cutting a release of something else.*
+Correcting a support URL must not require building a 2 GiB image.
 
-⚠️ **The tag is frozen now that something consumes it.** Correcting this package means cutting a
-new product version — there is no `pkgrel` to bump without moving a tag people may already have.
+The identity is still the PRODUCT's act and still never the desktop's — that part
+did not change, and it is why `install.sh` will never install this package.
 
 ## What booting it gives you
 
@@ -136,15 +141,12 @@ to ignore the lid switch for the same reason.
 ## How it is put together
 
 ```
-packages/                our own packages (built and signed by nidara-repo)
-  nidara-release/        /etc/os-release: the product's name and version
 profile/                 an ordinary archiso profile
   profiledef.sh          image identity, boot modes, compression
   packages.x86_64        releng's list, minus the rescue DVD, plus the desktop
   pacman.conf            Arch's repos + [nidara]
   airootfs/              the overlay: identity, systemd, the live setup script
   syslinux/ efiboot/     BIOS and UEFI boot entries
-VERSION                  the product's version — declared here, read by both
 build.sh                 key trust + mkarchiso
 ```
 
