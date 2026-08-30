@@ -2,10 +2,11 @@
 #
 # Derived from archiso's `releng` list, with three deliberate changes:
 #
-#  1. ADDED the desktop: `nidara` (from the [nidara] repo — see pacman.conf) and
-#     the handful of things a live desktop needs that a rescue shell does not.
-#     `nidara` pulls Hyprland, GTK4/GJS, PipeWire, portals, fonts and its own
-#     default apps through its depends=() — none of that is listed here.
+#  1. ADDED the desktop: `nidara-desktop` (from the [nidara] repo — see
+#     pacman.conf) and the handful of things a live desktop needs that a rescue
+#     shell does not. `nidara-desktop` pulls Hyprland, GTK4/GJS, PipeWire,
+#     portals, fonts and its own default apps through its depends=() — none of
+#     that is listed here.
 #  2. SWAPPED the network stack: releng boots iwd + systemd-networkd; Nidara's
 #     shell reads NetworkManager's libnm directly, so the live session has to be
 #     on NetworkManager or its network panel is blind. This is not a preference.
@@ -43,8 +44,8 @@ terminus-font
 # is — see the note there.
 #
 # They answer two different questions, which is why they are two packages and
-# not one. `nidara` is what the desktop needs to RUN — without it there is no
-# shell. `nidara-apps` is what makes a freshly installed machine USABLE: a
+# not one. `nidara-desktop` is what the desktop needs to RUN — without it there
+# is no shell. `nidara-apps` is what makes a freshly installed machine USABLE: a
 # browser, and whatever else that set turns out to be. Its contents are
 # deliberately undecided and live in nidara-repo, one line away from changing;
 # what matters here is that the ISO names both and `install.sh` names only the
@@ -52,8 +53,8 @@ terminus-font
 #
 # Everything BELOW this section is the medium's own: kernel, firmware, installer
 # tools, VM guest agents. None of it belongs on the machine this ISO installs —
-# that system gets `nidara` + `nidara-apps` and nothing else from here. Keeping
-# the two apart is why the browser is no longer a line in this file.
+# that system gets `nidara-desktop` + `nidara-apps` and nothing else from here.
+# Keeping the two apart is why the browser is no longer a line in this file.
 #
 # ⚠️ These two, plus `nidara-installer` below, are the only lines here that come
 # from a repository WE publish — which makes them the only ones that can be
@@ -61,7 +62,11 @@ terminus-font
 # `pins.env` points at, so a package that exists in `nidara-desktop`'s tree but
 # not in the pinned tag is simply not there. `build.sh` checks for exactly that
 # before mkarchiso does, because "target not found" does not say it.
-nidara
+#
+# ⚠️ The desktop package is `nidara-desktop`, NOT `nidara`. It was renamed in
+# nidara-desktop v0.10.0 so that the bare name stays free for a future
+# metapackage; the two are not interchangeable and `nidara` resolves to nothing.
+nidara-desktop
 nidara-apps
 
 # ── installing ───────────────────────────────────────────────────────────────
@@ -70,9 +75,9 @@ nidara-apps
 # like `archinstall` two lines down, and the one package of this whole file that
 # must never reach the machine being installed — a system somebody is using must
 # not carry a program whose job is to erase a disk. That is the entire reason
-# `nidara-desktop`'s PKGBUILD is a split package: `nidara` and `nidara-installer`
-# are built together and shipped apart, and this file is the only place in
-# the world that names the second.
+# the desktop repository's PKGBUILD is a split package: `nidara-desktop` and
+# `nidara-installer` are built together and shipped apart, and this file is the
+# only place in the world that names the second.
 nidara-installer
 arch-install-scripts
 archinstall

@@ -23,14 +23,21 @@ field that exists for saying it, the README says it in prose, and anyone who ask
 straight answer. **Rebrand, don't appropriate** — the rule has not changed.
 
 **"Nidara Desktop" is the name of a COMPONENT, and it is only used where components are
-being discussed**: this repo's sibling `nidara-desktop`, the `nidara` package, a row in
-About, a bug report. It never appears in a sentence aimed at someone deciding whether to
-install anything.
+being discussed**: this repo's sibling `nidara-desktop`, the `nidara-desktop` package, a
+row in About, a bug report. It never appears in a sentence aimed at someone deciding
+whether to install anything.
+
+⚠️ **The package was called `nidara` until nidara-desktop v0.10.0** (2026-08-30), when it
+was renamed to match the repository and the component's name. The bare `nidara` is now
+deliberately UNCLAIMED: it is the obvious name for a metapackage that pulls the four
+layers below, which is a decision nobody has taken yet. Anything still asking pacman for
+`nidara` is asking for a package that does not exist — the symptom is `target not found`,
+and it reads exactly like a typo.
 
 | Piece | Repo | Package | What it is |
 |---|---|---|---|
 | **Nidara** | `nidara-iso` | — | The product: a live image that installs a system |
-| **Nidara Desktop** | `nidara-desktop` | `nidara` | The desktop environment: shell, greeter, lock |
+| **Nidara Desktop** | `nidara-desktop` | `nidara-desktop` | The desktop environment: shell, greeter, lock |
 | Nidara repo | `nidara-repo` | — | The pacman repository both consume |
 | Curated apps | `nidara-repo` | `nidara-apps` | The applications the product ships with |
 | System policy | `nidara-repo` | `nidara-system` | What Nidara changes about Arch itself (boot, splash, defaults) |
@@ -44,7 +51,7 @@ whatever happened to get typed.
 
 | Layer | The question it answers | Where it lives |
 |---|---|---|
-| **1. The desktop** | What does the desktop need to RUN? | `nidara` |
+| **1. The desktop** | What does the desktop need to RUN? | `nidara-desktop` |
 | **2. The composition** | What makes a fresh machine USABLE? | `nidara-apps` |
 | **3. System policy** | What does Nidara change about **Arch**? | `nidara-system` |
 | **4. Identity** | What does this computer call itself, and where does it get Nidara from? | `nidara-release` |
@@ -73,7 +80,7 @@ Three consequences, all of them already true rather than predicted:
    where the code already was.
 
 **The rule that decides layer 1 vs layer 3, and it is one line: if an Arch user installing only the
-desktop would not want it, it does not go in `nidara`.** GNOME Shell does not depend on Plymouth;
+desktop would not want it, it does not go in `nidara-desktop`.** GNOME Shell does not depend on Plymouth;
 Ubuntu ships a Plymouth theme. That is the whole distinction, and it is the one `install.sh` has
 always been held to — see "What does NOT change" at the end of this file.
 
@@ -190,12 +197,12 @@ loses is `VERSION` and `VERSION_ID`; `PRETTY_NAME` becomes `"Nidara"`. The deskt
 for this: `core/SystemInfo.ts` reads `PRETTY_NAME` and nothing else.
 
 **What About shows instead**, and it is strictly more useful for the thing About is actually for:
-not one number that is the same everywhere, but the versions of `nidara`, `nidara-system` and
+not one number that is the same everywhere, but the versions of `nidara-desktop`, `nidara-system` and
 `nidara-apps` — which differ between machines, which is what a bug report needs.
 
 **What this deletes:** the lockstep machinery. `VERSION` at this repo's root, `nidara-release`'s
 `pkgver`, and the tag no longer have to agree, and `nidara-repo`'s `build-repo.sh` no longer needs
-to refuse a "lockstep violation" for the product. ⚠️ **That gate stays for `nidara`**, the desktop,
+to refuse a "lockstep violation" for the product. ⚠️ **That gate stays for `nidara-desktop`**, the desktop,
 where the three-way agreement still means something.
 
 ### What is lost, and it is not nothing
@@ -203,7 +210,7 @@ where the three-way agreement still means something.
 **The announcement.** "Nidara 0.4.0 picks Firefox and rewrites the installer" is a sentence you can
 put on a page; "Nidara, rolling" is not. The answer is that the expressive power was in the wrong
 place: Omarchy's 4.0 — the precedent the old text cited — is a number on **the thing that got
-rewritten**, its shell. Nidara already has that number, on `nidara`, an artifact that genuinely is
+rewritten**, its shell. Nidara already has that number, on `nidara-desktop`, an artifact that genuinely is
 software with features. Big news is announced there, and an image's release notes say what that
 image decides. Nothing was lost; it stopped being duplicated into a second number that could not
 be true.
@@ -227,7 +234,7 @@ which is precisely the part that does **not** travel by pacman.
 scheme, the bootloader, the first-run experience, hardware paths (NVIDIA, dual boot), or a default
 that a person would otherwise have had to configure and that cannot reach an installed machine.
 
-**Do not cut an image because a package moved.** A new `nidara`, a new `nidara-apps`, a new
+**Do not cut an image because a package moved.** A new `nidara-desktop`, a new `nidara-apps`, a new
 `nidara-system` — those reach every existing machine on their own. That is the point of the four
 layers, and it is what "rolling" means. Arch publishing new packages is not a Nidara event either.
 
@@ -346,7 +353,7 @@ date"). They are states the product is in, and each one is reached by an image t
 
    **What is decided:** that this layer exists, that it is called `nidara-system`, that it lives
    here, and that the boundary between it and the desktop is the one-line rule — *if an Arch user
-   installing only the desktop would not want it, it does not go in `nidara`*.
+   installing only the desktop would not want it, it does not go in `nidara-desktop`*.
 
    **What is open, and stays open on purpose:** what goes IN it beyond what already exists. The
    current contents are not a curated set; they are what two pull requests happened to add. Each
@@ -357,14 +364,14 @@ date"). They are states the product is in, and each one is reached by an image t
    before its policy travels would leave the convergence promise with nobody to keep it):
    1. ✅ **DONE 2026-08-30** — `nidara-system` exists (in `nidara-repo`, see above), carrying the
       Plymouth theme, the mkinitcpio drop-in and the watchdog configuration, with the pacman hook
-      that regenerates the initramfs. The installer now names it beside `nidara` and
+      that regenerates the initramfs. The installer now names it beside `nidara-desktop` and
       `nidara-apps`. ▶️ Still open in it: whether the watchdog files are a product default at all —
       they were carried across unchanged from nidara-desktop#284, where they existed to silence a
       warning in a test VM, and disabling a hardware watchdog removes what recovers a hung machine.
       ▶️ And the LIVE medium does not get it: the image's own boot is built by `mkarchiso` from
       archiso's preset, so putting this in `packages.x86_64` would let our drop-in edit the
       medium's HOOKS. Whether the live session should have a splash is its own decision.
-   2. `nidara-desktop` gives them up — `depends=(plymouth)` and the theme leave the `nidara`
+   2. `nidara-desktop` gives them up — `depends=(plymouth)` and the theme leave the `nidara-desktop`
       package, and `install.sh` stops setting a boot theme on somebody else's machine.
    3. `bootloader.ts` shrinks to the per-machine residue: kernel parameters in the loader entries
       and the Windows-aware timeout.

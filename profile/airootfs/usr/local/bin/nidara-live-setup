@@ -4,7 +4,7 @@
 #
 # Everything here could ALMOST be baked into the image at build time. It is not,
 # for one reason: `nidara-setup` — the desktop's own first-run script, shipped by
-# the `nidara` package — reads the RUNNING system (keyboard layout, timezone,
+# the `nidara-desktop` package — reads the RUNNING system (keyboard layout, timezone,
 # locale, battery presence, which display manager is active) to decide what it
 # writes. Baking its output at build time would freeze the build container's
 # answers into every machine that boots this ISO. So the live medium runs the

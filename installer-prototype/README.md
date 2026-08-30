@@ -87,7 +87,7 @@ Three `[nidara]` sections, two different `SigLevel`s, and
 **every pacman invocation on the installed system, forever** — not just during
 the install.
 
-Removed and re-run end to end: **1 section, 0 errors, and `nidara` still
+Removed and re-run end to end: **1 section, 0 errors, and the desktop still
 installs** — which is also the proof that the target inherits the repo from the
 copied live config. What survives of the trust-model decision below is the half
 that was actually forced.
@@ -99,7 +99,7 @@ discovered late.
 
 ### What the trust model still forces
 
-`nidara` and `nidara-apps` cannot go in the `packages` list: `[nidara]` is
+`nidara-desktop` and `nidara-apps` cannot go in the `packages` list: `[nidara]` is
 registered with `SigLevel = Required`, and installing from it needs the signing
 key trusted in the *target* keyring — but `add_additional_packages` runs before
 anything can import a key there. So the three real steps — trust the key, install

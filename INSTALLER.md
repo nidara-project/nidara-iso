@@ -162,12 +162,12 @@ prototype is not thrown away when the UI exists:
 - **The frame**, in `nidara-desktop/ui/installer/`: the window, the step flow, the base-config
   reader, and one placeholder step that says which screens are missing rather than miming them.
   It builds and runs on any Nidara session; `packaging/nidara/PKGBUILD` emits `nidara-installer`
-  beside `nidara`.
+  beside `nidara-desktop`.
 - **The product half**, here: `profile/airootfs/usr/share/nidara-installer/base.json` — the
   prototype's config with the machine's and the person's answers taken out (hostname, timezone,
   locale; the disk was never in it). What is left is what the PRODUCT decides: systemd-boot, the
   `linux` kernel, NetworkManager, zram, and the four `custom_commands` that trust the repo key,
-  install `nidara` + `nidara-apps`, land `nidara-release` and run `nidara-setup`.
+  install `nidara-desktop` + `nidara-apps`, land `nidara-release` and run `nidara-setup`.
   ⚠️ The last of those still carries `SUDO_USER=nidara`, a hardcoded user name from the
   prototype. It keeps the by-hand path working today, and the front-end MUST rewrite it with the
   account it just created — a base config cannot know that answer.

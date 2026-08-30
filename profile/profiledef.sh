@@ -6,8 +6,8 @@
 # This is a plain archiso profile, deliberately close to upstream's `releng`:
 # what differs from it is listed in the repo README, and every divergence is
 # commented where it lives. The image installs a genuine Arch system — the
-# packages come from Arch's own mirrors, `nidara` is the single package that
-# does not (see pacman.conf).
+# packages come from Arch's own mirrors, and the ones that do not are ours:
+# `nidara-desktop`, `nidara-apps` and `nidara-installer` (see pacman.conf).
 
 iso_name="nidara"
 iso_label="NIDARA_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
