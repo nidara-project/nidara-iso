@@ -6,8 +6,8 @@ profile that produces a bootable image of the
 
 It is Arch. The base system comes from Arch's own mirrors, `pacman` stays
 `pacman`, and nothing is frozen or forked. Two packages on the image do not come
-from Arch — `nidara` (the desktop) and `nidara-apps` (the curated application
-set) — plus a third, `nidara-release`, that the installer puts on the TARGET and
+from Arch — `nidara-desktop` (the desktop) and `nidara-apps` (the curated
+application set) — plus a third, `nidara-release`, that the installer puts on the TARGET and
 never on the medium (see "Identity" below). All three are served signed from
 [nidara-repo](https://github.com/nidara-project/nidara-repo). "Based on Arch
 Linux" is the whole claim — the name and the look are ours, the system is
@@ -112,7 +112,7 @@ the first thing with Nidara's identity on it is the desktop itself.
 `archinstall` (Arch's own installer, in `extra`) ships on the image and works
 from a terminal. Its config accepts a custom signed repository, a package list
 and post-install commands, which is exactly the shape of a Nidara install:
-register `[nidara]`, install `nidara`, run `nidara-setup`.
+register `[nidara]`, install `nidara-desktop`, run `nidara-setup`.
 
 **The graphical installer is decided** (2026-08-25): a GTK4 front-end of our own,
 driving `archinstall`, shipped as `nidara-installer` — an ISO-only package built
@@ -151,7 +151,7 @@ build.sh                 key trust + mkarchiso
 The one file worth reading is
 `profile/airootfs/usr/local/bin/nidara-live-setup`. It runs once, before
 `greetd`, and its whole design rule is **never reimplement `nidara-setup`** —
-the desktop's own first-run script, shipped by the `nidara` package, which reads
+the desktop's own first-run script, shipped by the `nidara-desktop` package, which reads
 the running machine (keyboard layout, timezone, locale, battery, active display
 manager) to decide what it writes. Baking its output into the image would freeze
 the build container's answers onto every machine that boots this ISO. So the
@@ -175,7 +175,7 @@ VM: fourteen entries became seven.
 
 None of them come from a package this image asks for by name — they arrive
 behind nautilus (avahi), ffmpeg (v4l-utils, hwloc) and uwsm (uuctl), all of them
-dependencies of `nidara` itself, so the same entries appear on every ordinary
+dependencies of `nidara-desktop` itself, so the same entries appear on every ordinary
 Nidara install too. Hiding them upstream rather than here is a change worth
 making; this directory is the evidence that the mechanism works.
 

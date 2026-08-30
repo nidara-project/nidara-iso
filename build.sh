@@ -86,8 +86,14 @@ if [ -n "$WANT" ] && [ -n "$NIDARA_SERVER" ]; then
             echo "        It currently serves:" >&2
             printf '%s\n' "$have" | sed 's/^/          /' >&2
             echo >&2
-            echo "        This is a PIN, not a typo. nidara-repo builds from the release" >&2
-            echo "        its pins.env names, so the fix is upstream and in this order:" >&2
+            echo "        Two things cause this, and the list above tells them apart." >&2
+            echo >&2
+            echo "        A RENAME, if the list has a package that is obviously the same" >&2
+            echo "        thing under another name (nidara -> nidara-desktop, v0.10.0)." >&2
+            echo "        Then the fix is HERE: the profile is asking for the old name." >&2
+            echo >&2
+            echo "        A PIN, otherwise. nidara-repo builds from the release its" >&2
+            echo "        pins.env names, so the fix is upstream and in this order:" >&2
             echo "          1. tag nidara-desktop with the package in its PKGBUILD" >&2
             echo "          2. point nidara-repo's pins.env at that tag and let CI publish" >&2
             echo "          3. build this image" >&2
