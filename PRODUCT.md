@@ -33,7 +33,7 @@ install anything.
 | **Nidara Desktop** | `nidara-desktop` | `nidara` | The desktop environment: shell, greeter, lock |
 | Nidara repo | `nidara-repo` | — | The pacman repository both consume |
 | Curated apps | `nidara-repo` | `nidara-apps` | The applications the product ships with |
-| System policy | `nidara-iso` | `nidara-system` | What Nidara changes about Arch itself (boot, splash, defaults) |
+| System policy | `nidara-repo` | `nidara-system` | What Nidara changes about Arch itself (boot, splash, defaults) |
 | Identity | `nidara-iso` | `nidara-release` | `/etc/os-release`: the product's **name**, and where it comes from (exists since 2026-08-25) |
 
 ## Four layers, and the third one had no owner
@@ -77,13 +77,40 @@ desktop would not want it, it does not go in `nidara`.** GNOME Shell does not de
 Ubuntu ships a Plymouth theme. That is the whole distinction, and it is the one `install.sh` has
 always been held to — see "What does NOT change" at the end of this file.
 
-`nidara-system` is where layer 3 goes: a package in this repo, published by `nidara-repo` beside
-`nidara-release`. It takes everything declarative — the Plymouth theme and `plymouthd.conf`,
-`/etc/mkinitcpio.conf.d/nidara.conf` (the conf.d mechanism, which is how archiso already injects
-its own hook, so the user's `mkinitcpio.conf` is never edited), the watchdog drop-ins, and whatever
-the hardware work of rung 3 turns up. The installer keeps only what is genuinely per-machine and cannot
-be packaged: the kernel parameters in this machine's loader entries, and the loader timeout that
-depends on whether Windows is present.
+`nidara-system` is where layer 3 goes. **It exists as of 2026-08-30**, and it takes everything
+declarative — the Plymouth theme, `/etc/mkinitcpio.conf.d/nidara.conf`, the watchdog drop-ins, and
+whatever the hardware work of rung 3 turns up. The installer keeps only what is genuinely
+per-machine and cannot be packaged: the kernel parameters in this machine's loader entries, and the
+loader timeout that depends on whether Windows is present.
+
+⚠️ ~~a package in this repo, beside `nidara-release`~~ — **it lives in `nidara-repo` instead**
+(corrected 2026-08-30, the day after this paragraph was written). Two things were not known when
+it said "this repo", and both point the other way: `nidara-release` is here because its version WAS
+the product's and had to lock to the image's tag, and that version is being removed, so the
+coupling that put it here applies to nothing else; and `nidara-repo` fetches this repository **by
+tag**, while the product's tagging scheme is precisely what is in flux. What settles it is the rule
+`nidara-apps` already established — **`nidara-repo` holds the packages whose content must change
+without cutting a release of something else**, and a boot default must not require building a
+2 GiB image, for the same reason the browser must not. That rule now covers two packages, which is
+what makes it a rule rather than an exception.
+
+⚠️ Two claims this paragraph originally made were **wrong on inspection**, and both are the same
+mistake — naming a mechanism without checking what it does:
+
+- ~~"`plymouthd.conf`"~~ — **that file belongs to the `plymouth` package**, as a `backup=` file,
+  which is the right thing for it to be. Shipping it is a file conflict; overwriting it takes a
+  config file from the admin it belongs to. The theme is set with `plymouth-set-default-theme`,
+  plymouth's own tool, which writes `Theme=` into that file and leaves pacman to preserve the
+  result.
+- ~~"the conf.d mechanism, which is how archiso already injects its own hook, so the user's
+  `mkinitcpio.conf` is never edited"~~ — the mechanism is real and archiso does use it, but **it
+  works by REPLACING the whole `HOOKS` array**, not by injecting one hook: `mkinitcpio.conf.d/*.conf`
+  is sourced as shell. That is correct for a medium that owns its entire boot and exactly wrong
+  here, because the right `HOOKS` list belongs to the machine — a user with LUKS, LVM, RAID or a
+  systemd initramfs has hooks we must not take away on the day they matter. Nidara's drop-in
+  therefore **edits the array it inherits**: it puts `plymouth` after `udev` or `systemd`, declines
+  if plymouth is already there, and adds nothing at all when it finds neither, because a missing
+  splash is cosmetic and a misplaced hook is a boot failure.
 
 ### Why this is not merged into `nidara-release`
 
@@ -328,8 +355,15 @@ date"). They are states the product is in, and each one is reached by an image t
 
    **The work this implies, in order** (the sequence matters: removing the product's version
    before its policy travels would leave the convergence promise with nobody to keep it):
-   1. `nidara-system` exists and carries the Plymouth theme, the mkinitcpio drop-in and the
-      watchdog configuration, with the initramfs hook that makes it take effect.
+   1. ✅ **DONE 2026-08-30** — `nidara-system` exists (in `nidara-repo`, see above), carrying the
+      Plymouth theme, the mkinitcpio drop-in and the watchdog configuration, with the pacman hook
+      that regenerates the initramfs. The installer now names it beside `nidara` and
+      `nidara-apps`. ▶️ Still open in it: whether the watchdog files are a product default at all —
+      they were carried across unchanged from nidara-desktop#284, where they existed to silence a
+      warning in a test VM, and disabling a hardware watchdog removes what recovers a hung machine.
+      ▶️ And the LIVE medium does not get it: the image's own boot is built by `mkarchiso` from
+      archiso's preset, so putting this in `packages.x86_64` would let our drop-in edit the
+      medium's HOOKS. Whether the live session should have a splash is its own decision.
    2. `nidara-desktop` gives them up — `depends=(plymouth)` and the theme leave the `nidara`
       package, and `install.sh` stops setting a boot theme on somebody else's machine.
    3. `bootloader.ts` shrinks to the per-machine residue: kernel parameters in the loader entries

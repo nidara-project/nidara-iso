@@ -36,7 +36,7 @@
   },
   "custom_commands": [
     "set -e; echo '>> [nidara] trusting the repo signing key'; curl -fsSL https://nidara-project.github.io/nidara-repo/nidara.gpg | pacman-key --add -; pacman-key --lsign-key 80B0AC8C36A43611A8619959B06B716279F755A9",
-    "set -e; echo '>> installing the desktop'; pacman -Sy --noconfirm nidara nidara-apps",
+    "set -e; echo '>> installing the desktop'; pacman -Sy --noconfirm nidara nidara-apps nidara-system",
     "set -e; echo '>> [nidara] the system says its own name'; pacman -S --noconfirm --overwrite /etc/os-release nidara-release",
     "set -e; echo '>> nidara-setup'; SUDO_USER=nidara nidara-setup"
   ]
