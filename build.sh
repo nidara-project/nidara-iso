@@ -68,43 +68,68 @@ NIDARA_SERVER="$(sed -n '/^\[nidara\]/,/^\[/p' "$PROFILE/pacman.conf" \
 NIDARA_SERVER="${NIDARA_SERVER//\$arch/x86_64}"
 WANT="$(grep -E '^nidara' "$PROFILE/packages.x86_64" || true)"
 
-if [ -n "$WANT" ] && [ -n "$NIDARA_SERVER" ]; then
-    echo "==> Checking [nidara] serves what this profile asks for..."
-    db="$(mktemp)"
-    if curl -sfL "$NIDARA_SERVER/nidara.db" -o "$db"; then
-        # The db is a tarball of <pkgname>-<pkgver>-<pkgrel>/ directories.
-        have="$(tar -tzf "$db" 2>/dev/null | sed 's|/.*||' | sort -u)"
-        missing=""
-        for pkg in $WANT; do
-            printf '%s\n' "$have" | grep -qE "^${pkg}-[^-]+-[^-]+$" || missing="$missing $pkg"
-        done
-        rm -f "$db"
-        if [ -n "$missing" ]; then
-            echo >&2
-            echo "  [ERR] [nidara] does not serve:$missing" >&2
-            echo "        $NIDARA_SERVER" >&2
-            echo "        It currently serves:" >&2
-            printf '%s\n' "$have" | sed 's/^/          /' >&2
-            echo >&2
-            echo "        Two things cause this, and the list above tells them apart." >&2
-            echo >&2
-            echo "        A RENAME, if the list has a package that is obviously the same" >&2
-            echo "        thing under another name (nidara -> nidara-desktop, v0.10.0)." >&2
-            echo "        Then the fix is HERE: the profile is asking for the old name." >&2
-            echo >&2
-            echo "        A PIN, otherwise. nidara-repo builds from the release its" >&2
-            echo "        pins.env names, so the fix is upstream and in this order:" >&2
-            echo "          1. tag nidara-desktop with the package in its PKGBUILD" >&2
-            echo "          2. point nidara-repo's pins.env at that tag and let CI publish" >&2
-            echo "          3. build this image" >&2
-            exit 1
-        fi
-        echo "    ok: ${WANT//$'\n'/ }"
-    else
-        # A network hiccup must not fail a build that pacman's cache could serve.
-        echo "    [WARN] could not read $NIDARA_SERVER/nidara.db — skipping the check." >&2
-    fi
+# ── the repository's address is written in three places and they must agree ───
+#
+# It used to be written twice, in two files that were byte-identical, so nobody
+# could get it wrong. Since the address moved into a package-owned mirrorlist
+# (so it can be CORRECTED on machines that already exist) the three copies have
+# three different jobs and three different shapes, and none of them can be
+# derived from the others:
+#
+#   pacman.conf                  a literal Server =, because the BUILD HOST
+#                                resolves it and has no Nidara file
+#   airootfs/etc/pacman.d/…      what the LIVE system reads through its Include
+#   base.json, command 1         what the INSTALLER writes on the target before
+#                                its first pacman call
+#
+# A disagreement is silent in the worst way: the build works, the live session
+# works, and the installed machine points at a repository that is not there.
+# (A fourth copy lives in nidara-repo's nidara-release PKGBUILD. That one is
+# deliberately NOT checked here — it is the address that WINS, by design, since
+# the whole point is that a package can move it.)
+ADDR_MIRRORLIST="$(sed -n 's/^Server *= *//p' \
+                   "$PROFILE/airootfs/etc/pacman.d/nidara-mirrorlist" | head -1)"
+ADDR_INSTALLER="$(grep -o "Server = https://[^']*" \
+                  "$PROFILE/airootfs/usr/share/nidara-installer/base.json" \
+                  | sed 's/^Server = //' | head -1)"
+ADDR_BUILD="$(sed -n '/^\[nidara\]/,/^\[/p' "$PROFILE/pacman.conf" \
+              | sed -n 's/^Server *= *//p' | head -1)"
+
+if [ "$ADDR_MIRRORLIST" != "$ADDR_BUILD" ] || [ "$ADDR_INSTALLER" != "$ADDR_BUILD" ]; then
+    echo >&2
+    echo "  [ERR] the [nidara] address disagrees between the three places that carry it:" >&2
+    echo "        profile/pacman.conf                       $ADDR_BUILD" >&2
+    echo "        airootfs/etc/pacman.d/nidara-mirrorlist   $ADDR_MIRRORLIST" >&2
+    echo "        base.json (the installer's first command) $ADDR_INSTALLER" >&2
+    echo >&2
+    echo "        All three must be the same string, \$arch included." >&2
+    exit 1
 fi
+
+# The live medium's config must PARSE. An Include naming a file that is not
+# there is not a missing repo — it is a hard error on every pacman invocation,
+# `pacman-key` included, which is how the target trusts this repo's key. A live
+# session where nothing involving pacman works at all is worth four lines here.
+#
+# ⚠️ The Include is an ABSOLUTE path, and `pacman-conf` resolves it against the
+# root it is running on — THIS HOST, which has no /etc/pacman.d/nidara-mirrorlist
+# and is not supposed to. Checking the file as-is would fail on every build host
+# in the world. So the check rewrites the Include to point at the copy the medium
+# actually ships, which is the file the live system will read at that path.
+_livecheck="$(mktemp)"
+sed "s|^Include *= */etc/pacman.d/nidara-mirrorlist|Include = $PROFILE/airootfs/etc/pacman.d/nidara-mirrorlist|" \
+    "$PROFILE/airootfs/etc/pacman.conf" > "$_livecheck"
+if ! pacman-conf --config "$_livecheck" --repo nidara >/dev/null 2>&1; then
+    echo >&2
+    echo "  [ERR] the LIVE pacman.conf does not parse, or has no [nidara]:" >&2
+    echo "        $PROFILE/airootfs/etc/pacman.conf" >&2
+    echo >&2
+    pacman-conf --config "$_livecheck" --repo nidara >/dev/null || true
+    rm -f "$_livecheck"
+    exit 1
+fi
+rm -f "$_livecheck"
+
 
 mkdir -p "$OUT"
 echo "==> mkarchiso: $PROFILE -> $OUT"

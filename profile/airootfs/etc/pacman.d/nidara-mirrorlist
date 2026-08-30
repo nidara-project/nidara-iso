@@ -1,0 +1,15 @@
+#
+# /etc/pacman.d/nidara-mirrorlist
+#
+# The Nidara package repository. Referenced from /etc/pacman.conf as:
+#
+#     [nidara]
+#     SigLevel = Required DatabaseOptional
+#     Include  = /etc/pacman.d/nidara-mirrorlist
+#
+# This file belongs to the `nidara-release` package, so a corrected address
+# reaches machines that are already installed. Edit it if you run a local mirror
+# — your version is preserved across upgrades and the new one arrives as
+# `nidara-mirrorlist.pacnew`.
+#
+Server = https://nidara-project.github.io/nidara-repo/$arch

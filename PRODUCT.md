@@ -390,9 +390,17 @@ date"). They are states the product is in, and each one is reached by an image t
       ▶️ Two things fell out that were not predicted: the package had to MOVE to `nidara-repo`,
       because a package fetched from a tag cannot be published by a repo that is no longer
       tagged; and `NIDARA_ISO_REF` plus its lockstep gate went with it, leaving one pin.
-   5. `nidara-release` takes ownership of `/etc/pacman.d/nidara-mirrorlist`, and the medium's
-      `pacman.conf` swaps its direct `Server =` for an `Include =` of it — so the repository's
-      address stops being a thing only new installs can learn.
+   5. ✅ **DONE 2026-08-30** — `nidara-release` owns `/etc/pacman.d/nidara-mirrorlist` and the
+      medium's `pacman.conf` reaches `[nidara]` through an `Include` of it, so the repository's
+      address stops being a thing only new installs can learn. It is `backup=`, unlike
+      `/etc/os-release`, and the asymmetry is the decision: identity must win, a mirror address is
+      configuration an admin may legitimately change. An unmodified file is still replaced by the
+      upgrade, which is the whole point.
+      ▶️ Two things fell out, both measured: a missing `Include` target is a **hard parse error on
+      every pacman invocation** (`pacman-key` included), so the address has to be present from the
+      target's first command — the installer writes it, the package adopts it with `--overwrite`;
+      and the two `pacman.conf` files in nidara-iso, byte-identical until now, must now DIFFER
+      (the build host resolves its own, and has no Nidara file). `build.sh` checks both.
 3. ~~**The version of the first public image.**~~ ~~**DECIDED 2026-08-25: `0.1.0`**~~
    **SUPERSEDED 2026-08-30: images carry a date, not a version** — see "The machine is rolling,
    the image has a date". The question this asked no longer has an answer because it no longer has
