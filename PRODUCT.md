@@ -490,9 +490,34 @@ bootloader. Saying it is not a retreat — it is the difference between the two 
 reason the ISO is the product.
 
 **The work, in order:**
-1. System mode stops upgrading a machine that is not ours: no `-Syu` of the user's system, no
-   `--noconfirm`. This is the concrete breach and it is small — `nidara-desktop` issue.
-2. The `[nidara]` snippet becomes documented, first-class installation instructions, rather than
-   something a script appends to `/etc/pacman.conf` on the user's behalf.
-3. `install.sh` is `--dev` only, and the system path in it goes.
-4. The guarantee asymmetry above is stated where a person choosing between the two paths reads it.
+1. ✅ **DONE 2026-09-02** (`nidara-desktop` #378) — with a correction worth keeping: the issue
+   said to drop the `-Syu`, and **that was wrong**. Arch does not support partial upgrades, and
+   the freshly added `[nidara]` repo cannot be reached without a sync at all, so removing it would
+   have traded an invasive upgrade for a broken one. What changed is the manner: the upgrade is
+   announced, shown, and declining it stops the install with nothing written. `--noconfirm` is
+   gone. Not touching the machine's own packages at all is step 3, not this.
+2. ✅ **DONE 2026-09-02** — `nidara-desktop`'s README leads with the package: signing key,
+   fingerprint, repository stanza, `pacman -Syu nidara-desktop`, `nidara-setup`, no clone and no
+   script. It had been there all along as a closing aside, and conditional on having already run
+   the installer — so the documented way to install an Arch package was to run a script that
+   edits the reader's `/etc/pacman.conf` for them. ▶️ What fell out: the instructions were written
+   against what is actually served (the key is published, its fingerprint matches the one
+   `install.sh` trusts, the database serves `nidara-desktop-0.10.1-1`) rather than from memory —
+   worth repeating, because a documented install path that has never been executed is a promise,
+   not an instruction.
+3. ✅ **DONE 2026-09-02** (`nidara-desktop` #383) — `install.sh` is `--dev` only: 865 lines to
+   773, and a bare `./install.sh` now prints the three package commands and exits 1. A message
+   rather than a new default, because the old default installed a desktop and anyone re-running
+   a remembered command has to be told what replaced it instead of quietly getting a developer
+   install. What went with the system path, none of it needed by a dev install: the checkout of
+   the newest tag, the registration of `[nidara]` and its key, the package branch of §4, the
+   `DEV_LIKE` mode, and `nidara-update`'s stable route. ▶️ It could not go first — removing the
+   system path before the package instructions existed would have left no documented way to
+   install on Arch at all, which is why it is third and not first. ⚠️ A real dev install of this
+   is still unverified; only the refusal paths were exercised.
+4. ✅ **DONE 2026-09-02** — "What is guaranteed, and where" in `nidara-desktop`'s README, beside
+   the two paths themselves: on the live image the whole system is ours and a problem is ours to
+   fix; on somebody's own Arch we support the package and promise nothing about their kernel,
+   graphics stack or bootloader, because we did not choose them. ⚠️ It reads as a smaller change
+   than it is — this is the sentence that makes "the product is the other path" true for a reader
+   instead of only for us.
