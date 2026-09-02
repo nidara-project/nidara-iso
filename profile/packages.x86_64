@@ -20,6 +20,13 @@
 #
 # Hardware support is NOT part of that trim: firmware, filesystem tools, wifi
 # drivers and VM guest agents stay exactly as releng has them.
+#
+# ⚠️ AND NEITHER IS THE BOOT. `airootfs/etc/mkinitcpio.conf.d/archiso.conf` is a
+# byte-for-byte copy of releng's, so every hook upstream runs, we run — and a
+# hook whose package was trimmed from HERE fails at image build with `ERROR: file
+# not found`, in the middle of a wall of harmless firmware warnings. Three
+# builds shipped that way before anyone read the wall. Trim a package that a hook
+# needs and you must curate the HOOKS array in the same change.
 
 # ── base system ──────────────────────────────────────────────────────────────
 base
@@ -30,6 +37,18 @@ amd-ucode
 intel-ucode
 mkinitcpio
 mkinitcpio-archiso
+# ⚠️ These three are not optional extras: they are what the `archiso_pxe_*` hooks
+# in our (verbatim releng) HOOKS array load. `mkinitcpio-nfs-utils` provides
+# /usr/lib/initcpio/ipconfig and nfsmount, `nbd` provides nbd-client. Without
+# them mkinitcpio aborts those hooks and closes with "errors were encountered
+# during the build. The image may not be complete."
+# `pv` is the odd one out and the one that matters to an ordinary user: it is not
+# a hook dependency but archiso's progress meter for `copytoram`, the boot option
+# that loads the image into RAM so the USB stick can be pulled out. Without it
+# that copy still works, silently, with no indication it is doing anything.
+mkinitcpio-nfs-utils
+nbd
+pv
 sof-firmware
 sudo
 less

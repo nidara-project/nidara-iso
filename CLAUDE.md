@@ -102,7 +102,26 @@ When the test VM is running:
 6. **`SUDO_USER` rewriting in `custom_commands`:**
    `base.json` contains `SUDO_USER=nidara nidara-setup`. The installer front-end must rewrite `SUDO_USER` to the user account created during installation so first-boot configuration targets the correct user.
 
-7. **What NOT to touch without explicit user alignment:**
+7. **The HOOKS array is upstream's; the package list is ours — and they are COUPLED:**
+   `profile/airootfs/etc/mkinitcpio.conf.d/archiso.conf` is a byte-for-byte copy of releng's,
+   including the four `archiso_pxe_*` hooks. `packages.x86_64`, by contrast, is trimmed. A hook
+   whose package was trimmed away fails at image build with `ERROR: file not found:
+   '/usr/lib/initcpio/ipconfig'` (and friends), and mkinitcpio closes with *"errors were
+   encountered during the build. The image may not be complete."* — buried in a wall of harmless
+   `Possibly missing firmware for module:` warnings, which is why three images shipped that way.
+   `mkinitcpio-nfs-utils`, `nbd` and `pv` exist in the list for exactly this reason. **Trimming a
+   package a hook needs means curating the HOOKS array in the same change.**
+
+8. **A `nidara-*` package can go stale in the HOST's pacman cache and read as corruption:**
+   `pacstrap` shares `/var/cache/pacman/pkg` with the build host. Three of our five packages carry
+   a flat-counter `pkgver` (`nidara-apps-1-1`, `nidara-system-1-1`, `nidara-release-2-1`) and
+   nidara-repo's CI rebuilds every package on every run — so the same filename gets republished
+   with different bytes, and a cached copy from a previous build fails the checksum:
+   `File /var/cache/pacman/pkg/nidara-apps-1-1-any.pkg.tar.zst is corrupted (invalid or corrupted
+   package (checksum))`. Nothing is corrupt. Delete the cached `nidara-*` copies and rebuild; it
+   recurs after **any** push to nidara-repo, not just a version bump.
+
+9. **What NOT to touch without explicit user alignment:**
    - The repository signing key fingerprint (`80B0AC8C36A43611A8619959B06B716279F755A9`).
    - The boot UUID scheme or volume label.
    - Default application choices or product packages (refer to `PRODUCT.md`).
