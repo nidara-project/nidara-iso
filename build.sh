@@ -154,7 +154,14 @@ set -e
 
 # The log belongs to whoever ran sudo, not to root — it is theirs to read, grep
 # and delete without another sudo.
-[ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER" "$LOG" "$REPO_DIR/logs" 2>/dev/null
+#
+# ⚠️ The trailing colon is load-bearing. `chown user file` sets the OWNER and
+# leaves the GROUP alone, so under sudo the file comes out `angel:root` — right
+# owner, root group, write access unaffected, and therefore invisible until
+# something reads the group. `user:` means "and that user's login group". This
+# is the same defect nidara-desktop #376 fixed in nidara-setup, reproduced here
+# within the week; it is worth the four lines because nothing warns you.
+[ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER:" "$LOG" "$REPO_DIR/logs" 2>/dev/null
 
 # ── and then it reads it back, because the wall is where a defect hides ───────
 #
