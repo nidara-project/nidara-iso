@@ -131,9 +131,65 @@ fi
 rm -f "$_livecheck"
 
 
-mkdir -p "$OUT"
+# ── the build keeps a copy of what it said ───────────────────────────────────
+#
+# mkarchiso writes to stdout and nowhere else, so until now the only record of a
+# twelve-minute build was the terminal it ran in — gone with the scrollback, and
+# unreadable by anyone not sitting at it. That is not a convenience: on
+# 2026-09-02 three real `ERROR:` lines from mkinitcpio rode inside a wall of
+# ~15 harmless `Possibly missing firmware for module:` warnings and survived
+# THREE images, because nobody could re-read the wall afterwards.
+mkdir -p "$OUT" "$REPO_DIR/logs"
+LOG="$REPO_DIR/logs/build-$(date +%Y%m%d-%H%M%S).log"
 echo "==> mkarchiso: $PROFILE -> $OUT"
-mkarchiso -v -w "$WORK" -o "$OUT" "$PROFILE"
+echo "==> log: $LOG"
+#
+# ⚠️ And the status is CAUGHT, not left to `set -e`. The read-back below is most
+# needed on a build that FAILED, and `set -e` would kill the script before it
+# ran — which is exactly what happened on the two failed builds of 2026-09-02.
+set +e
+mkarchiso -v -w "$WORK" -o "$OUT" "$PROFILE" 2>&1 | tee "$LOG"
+mkarchiso_status=${PIPESTATUS[0]}
+set -e
+
+# The log belongs to whoever ran sudo, not to root — it is theirs to read, grep
+# and delete without another sudo.
+[ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER" "$LOG" "$REPO_DIR/logs" 2>/dev/null
+
+# ── and then it reads it back, because the wall is where a defect hides ───────
+#
+# Two classes, and the whole point is that they look alike in the scrollback:
+#
+#   NOISE   `==> WARNING: Possibly missing firmware for module: …` — mkinitcpio,
+#           on every Arch machine that regenerates an initramfs. Counted, not
+#           printed.
+#   NOISE   the three keyring errors of the final `pacman -Q --sysroot` step,
+#           which are the design (see README / CLAUDE.md trap 4).
+#   SIGNAL  everything else that says ERROR — a hook that could not find its
+#           files, an initramfs closing with "the image may not be complete".
+echo
+fw=$(grep -c 'Possibly missing firmware for module' "$LOG" || true)
+signal="$(grep -nE '==> ERROR|errors were encountered during the build|^error:' "$LOG" \
+          | grep -vE 'key "[0-9A-F]{40}" is unknown|keyring is not writable' || true)"
+echo "==> Read back from the log: $fw firmware warnings (harmless, expected)."
+if [ -n "$signal" ]; then
+    echo
+    echo "  ⚠️  and these, which are NOT:"
+    echo
+    printf '%s\n' "$signal" | sed 's/^/      /'
+    echo
+    echo "      An ISO may still have been produced — mkinitcpio reports and continues."
+    echo "      Do not test an image whose initramfs said it may be incomplete."
+else
+    echo "==> Nothing else said ERROR."
+fi
+
+if [ "$mkarchiso_status" -ne 0 ]; then
+    echo
+    echo "==> mkarchiso failed (exit $mkarchiso_status). The log above is kept at:"
+    echo "    $LOG"
+    exit "$mkarchiso_status"
+fi
 
 echo
 echo "==> Done:"
