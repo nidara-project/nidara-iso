@@ -110,7 +110,20 @@ wireless-regdb
 wireless_tools
 iw
 b43-fwcutter
-broadcom-wl
+# ⚠️ `broadcom-wl` USED to be here and is gone from Arch — only `broadcom-wl-dkms`
+# remains, and archiso's own releng profile dropped the name too (checked against
+# archiso 90). It is not a typo and not an outage: the precompiled module stopped
+# being published, so the build fails with `target not found` at pacstrap, after
+# setup, which reads exactly like a misspelling.
+#
+# Not replaced with `broadcom-wl-dkms` on purpose. That would put a COMPILER in
+# the live image — dkms depends on gcc, make, patch and binutils, and needs
+# `linux-headers` (310 MiB installed) to build against the image's kernel — and
+# would make every build depend on a module compile succeeding inside pacstrap.
+# Half a gigabyte and a new failure mode for one legacy Broadcom family, on an
+# image whose ceiling is already a concern. The official Arch ISO ships no `wl`
+# driver either; `b43-fwcutter` above still covers the cards the in-tree drivers
+# handle. Revisit only if somebody actually cannot install because of it.
 openssh
 rsync
 bind
