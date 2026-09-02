@@ -505,7 +505,16 @@ reason the ISO is the product.
    `install.sh` trusts, the database serves `nidara-desktop-0.10.1-1`) rather than from memory —
    worth repeating, because a documented install path that has never been executed is a promise,
    not an instruction.
-3. `install.sh` is `--dev` only, and the system path in it goes.
+3. ✅ **DONE 2026-09-02** (`nidara-desktop` #383) — `install.sh` is `--dev` only: 865 lines to
+   773, and a bare `./install.sh` now prints the three package commands and exits 1. A message
+   rather than a new default, because the old default installed a desktop and anyone re-running
+   a remembered command has to be told what replaced it instead of quietly getting a developer
+   install. What went with the system path, none of it needed by a dev install: the checkout of
+   the newest tag, the registration of `[nidara]` and its key, the package branch of §4, the
+   `DEV_LIKE` mode, and `nidara-update`'s stable route. ▶️ It could not go first — removing the
+   system path before the package instructions existed would have left no documented way to
+   install on Arch at all, which is why it is third and not first. ⚠️ A real dev install of this
+   is still unverified; only the refusal paths were exercised.
 4. ✅ **DONE 2026-09-02** — "What is guaranteed, and where" in `nidara-desktop`'s README, beside
    the two paths themselves: on the live image the whole system is ours and a problem is ours to
    fix; on somebody's own Arch we support the package and promise nothing about their kernel,
