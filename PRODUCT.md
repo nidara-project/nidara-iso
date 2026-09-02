@@ -449,3 +449,50 @@ worth noticing: nothing announced itself when `install.sh` started setting a Ply
 machine that is not ours. The rule is not self-enforcing, and the four layers above exist so that
 breaking it requires putting something in the wrong package rather than merely adding a line to a
 script.
+
+⚠️ **Broken a second time, and larger, found 2026-09-02.** `install.sh` step 1 runs
+`pacman -Syu --needed --noconfirm` over **80 package names**, in BOTH modes. Measured on a
+maintainer's own machine that day: 44 packages upgraded, including `linux` and `linux-zen`
+7.1.11 → 7.2.2, which left the running kernel with no modules directory on disk. On somebody
+else's Arch that is a full, unattended system upgrade they did not ask for — the most invasive
+thing this project can do to a machine short of touching its bootloader, and the rule above says
+the machine is theirs.
+
+The project already holds the opposite position, one file away. `nidara-update`'s PACKAGE path
+deliberately drops `--noconfirm`, and says why in a comment: *"this is a FULL system upgrade, the
+user should see what it pulls in"*. Same operation, two verdicts, because it was decided twice in
+two places instead of once here.
+
+### Decided 2026-09-02 — the desktop reaches somebody else's Arch as a PACKAGE, and by no other route
+
+Add `[nidara]`, then `pacman -S nidara-desktop`. Dependencies resolve as dependencies; the
+package's `install=` runs `nidara-setup`; upgrade and removal are pacman's. Nothing about the
+machine's own packages is touched, which is what makes the rule enforceable instead of merely
+stated.
+
+**This grants no new capability** — `install.sh` already installs precisely that package, from
+this repository's sibling, whenever the tree it is run from is exactly a release. What the
+decision removes is the *second* way in, the one that behaves like the owner of the machine.
+
+`install.sh` keeps `--dev`, and that is the point of it: the contribution path, where taking a
+machine over is legitimate because the machine is a development box — and where that box should
+be running the product.
+
+**It also closes a class of drift, which is how it surfaced.** `/etc/dconf/profile/user` and
+`/etc/dconf/db/local.d/00-nidara-appearance` are shipped by the package and by nothing else, so
+a machine installed any other way has never had them and `nidara-setup` warns about it on every
+run, correctly and forever. One route in, no skew to warn about.
+
+⚠️ **The asymmetry this implies has to be written somewhere a user reads, because today it is
+written nowhere:** on an image we produce, the product is guaranteed and tested; on somebody's
+own Arch we support a package and promise nothing about their kernel, their GPU or their
+bootloader. Saying it is not a retreat — it is the difference between the two paths, and the
+reason the ISO is the product.
+
+**The work, in order:**
+1. System mode stops upgrading a machine that is not ours: no `-Syu` of the user's system, no
+   `--noconfirm`. This is the concrete breach and it is small — `nidara-desktop` issue.
+2. The `[nidara]` snippet becomes documented, first-class installation instructions, rather than
+   something a script appends to `/etc/pacman.conf` on the user's behalf.
+3. `install.sh` is `--dev` only, and the system path in it goes.
+4. The guarantee asymmetry above is stated where a person choosing between the two paths reads it.
