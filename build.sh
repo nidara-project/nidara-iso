@@ -175,11 +175,20 @@ rm -f "$_livecheck"
 # code that is in nobody's git history, and it must not be published. The banner
 # below says so and the summary at the end repeats it.
 #
-# ⚠️ The local package usually carries the SAME name and SAME version as the
-# published one — an unreleased tree still says `pkgver=<last release>` — so
-# nothing about the version distinguishes them, and only repository ORDER decides
-# which lands. Order is not evidence, so it is not trusted: after the build the
-# bytes are compared (below), and a mismatch fails.
+# ⚠️ The local package is expected to carry a STAMPED pkgrel
+# (`0.11.0-1.<epoch>`, written by nidara-desktop's build-installer-pkg.sh), so it
+# wins on version rather than on where it sits in this list, and its filename can
+# never collide with a published one in the shared pacman cache. Both of those
+# were learned the hard way on 2026-09-04: an unstamped local package with the
+# same name as a cached published one made pacman abort the whole pacstrap with
+# `is corrupted (invalid or corrupted package (checksum))` — about a cache that
+# was fine.
+#
+# The order still matters as a belt, and the byte comparison after the build stays
+# regardless. It is what caught BOTH failures of that day, and neither was the one
+# it was written for: the first was a stale work directory, the second the cache
+# collision. A check that only ever confirms the hypothesis it was built from is
+# not worth much; this one kept answering a question nobody had asked yet.
 PACMAN_CONF="$PROFILE/pacman.conf"
 LOCAL_REPO=""
 if [ -n "$LOCAL_PKGS" ]; then
