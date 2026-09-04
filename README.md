@@ -27,7 +27,12 @@ refuses to pull the desktop.
 `-L <dir>` builds with locally built packages placed in front of the published
 ones — the way an unreleased installer change is tested without cutting a release
 first. It is a **test image**: unsigned packages, code in nobody's git history,
-and `build.sh` says so twice. The local package carries a stamped `pkgrel`
+and `build.sh` says so twice. ⚠️ It changes the **live medium** and nothing else: the installed machine pulls
+`nidara-desktop` from `[nidara]` over the network, at the tag nidara-repo pins, so
+a `-L` image installs your installer and the *released* desktop. A shell change
+cannot be tested this way.
+
+The local package carries a stamped `pkgrel`
 (`0.11.0-1.<epoch>`) so it wins on version and cannot collide with a published
 package sitting in the shared pacman cache — and the build still proves it landed
 by comparing every file the package owns against the image.
