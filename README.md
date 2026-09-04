@@ -24,6 +24,13 @@ sudo ./build.sh            # → out/nidara-2026.09.01-x86_64.iso (today's date)
 registers that repo with `SigLevel = Required`, so an unsigned build host
 refuses to pull the desktop.
 
+`-L <dir>` builds with locally built packages placed in front of the published
+ones — the way an unreleased installer change is tested without cutting a release
+first. It is a **test image**: unsigned packages, code in nobody's git history,
+and `build.sh` says so twice. Because the local package shares its name and
+version with the published one, order alone decides which lands, so the build
+proves it by comparing every file the package owns against the image.
+
 It also refuses to hand over an image whose installer would not do what the
 image says. `packages.x86_64` asks for `archinstall` unpinned, so a build takes
 whatever version was current that day, and `check-base-config.sh` runs that

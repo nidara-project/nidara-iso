@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # build.sh — build the Nidara ISO.
 #
-#     sudo ./build.sh [-o OUTPUT_DIR] [-w WORK_DIR]
+#     sudo ./build.sh [-o OUTPUT_DIR] [-w WORK_DIR] [-L LOCAL_PKG_DIR]
 #
 # Wraps `mkarchiso` with the one thing it cannot do for us: establishing trust
 # in the [nidara] repo's signing key on the BUILD host. The profile registers
@@ -19,12 +19,14 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROFILE="$REPO_DIR/profile"
 OUT="$REPO_DIR/out"
 WORK="$REPO_DIR/work"
+LOCAL_PKGS=""
 KEY_FPR=80B0AC8C36A43611A8619959B06B716279F755A9
 
-while getopts 'o:w:h' opt; do
+while getopts 'o:w:L:h' opt; do
     case "$opt" in
         o) OUT="$OPTARG" ;;
         w) WORK="$OPTARG" ;;
+        L) LOCAL_PKGS="$(cd "$OPTARG" && pwd)" ;;
         h) sed -n '2,20p' "$0"; exit 0 ;;
         *) exit 1 ;;
     esac
@@ -131,6 +133,70 @@ fi
 rm -f "$_livecheck"
 
 
+# ── an unreleased package can be put in front of the published one (-L) ──────
+#
+# The image installs `nidara-installer` (and the desktop) from [nidara], which
+# nidara-repo builds from the tag in its `pins.env`. That is right for a real
+# image and wrong for testing: an unreleased change to the installer cannot reach
+# a medium at all without cutting a release first, which is a preposterous price
+# for a change that is being tested precisely because nobody wants to release it
+# yet. It is why installer changes had been tested by copying a bundle into a
+# running live session by hand — faithful to the code, not to the artifact.
+#
+# `-L <dir>` puts locally built packages in a repository of their own, listed
+# BEFORE every other repository, and hands mkarchiso a pacman.conf that has it.
+#
+# ⚠️ THIS PRODUCES A TEST IMAGE. It is unsigned (`SigLevel = Optional TrustAll`,
+# because a locally built package is not signed by the release key), it contains
+# code that is in nobody's git history, and it must not be published. The banner
+# below says so and the summary at the end repeats it.
+#
+# ⚠️ The local package usually carries the SAME name and SAME version as the
+# published one — an unreleased tree still says `pkgver=<last release>` — so
+# nothing about the version distinguishes them, and only repository ORDER decides
+# which lands. Order is not evidence, so it is not trusted: after the build the
+# bytes are compared (below), and a mismatch fails.
+PACMAN_CONF="$PROFILE/pacman.conf"
+LOCAL_REPO=""
+if [ -n "$LOCAL_PKGS" ]; then
+    shopt -s nullglob
+    local_pkg_files=("$LOCAL_PKGS"/*.pkg.tar.*)
+    shopt -u nullglob
+    [ "${#local_pkg_files[@]}" -gt 0 ] || {
+        echo "  [ERR] -L $LOCAL_PKGS holds no *.pkg.tar.* files" >&2; exit 1; }
+
+    LOCAL_REPO="$WORK/local-repo"
+    rm -rf "$LOCAL_REPO"; mkdir -p "$LOCAL_REPO"
+    cp -- "${local_pkg_files[@]}" "$LOCAL_REPO/"
+    repo-add "$LOCAL_REPO/nidara-local.db.tar.gz" "$LOCAL_REPO"/*.pkg.tar.* >/dev/null
+
+    # Inserted immediately BEFORE the first repository section, so it wins any
+    # name that also exists in core/extra or [nidara] — and after [options],
+    # which pacman requires first. One insertion into the profile's own file
+    # rather than a reconstruction of it: a rebuilt pacman.conf is a second copy
+    # of the build's repository list, and the two would drift.
+    PACMAN_CONF="$WORK/pacman.local.conf"
+    awk -v repo="$LOCAL_REPO" '
+        /^\[/ && $0 != "[options]" && !inserted {
+            print "[nidara-local]"
+            print "SigLevel = Optional TrustAll"
+            print "Server = file://" repo
+            print ""
+            inserted = 1
+        }
+        { print }
+        END { if (!inserted) { print "pacman.conf has no repository section" > "/dev/stderr"; exit 1 } }
+    ' "$PROFILE/pacman.conf" > "$PACMAN_CONF"
+
+    echo
+    echo "  ############################################################"
+    echo "  #  TEST IMAGE — built with unsigned local packages:"
+    for f in "${local_pkg_files[@]}"; do echo "  #    $(basename -- "$f")"; done
+    echo "  #  Do not publish it and do not hand it to anybody."
+    echo "  ############################################################"
+    echo
+fi
+
 # ── the build keeps a copy of what it said ───────────────────────────────────
 #
 # mkarchiso writes to stdout and nowhere else, so until now the only record of a
@@ -152,7 +218,7 @@ STAMP="$(mktemp)"
 # needed on a build that FAILED, and `set -e` would kill the script before it
 # ran — which is exactly what happened on the two failed builds of 2026-09-02.
 set +e
-mkarchiso -v -w "$WORK" -o "$OUT" "$PROFILE" 2>&1 | tee "$LOG"
+mkarchiso -v -C "$PACMAN_CONF" -w "$WORK" -o "$OUT" "$PROFILE" 2>&1 | tee "$LOG"
 mkarchiso_status=${PIPESTATUS[0]}
 set -e
 
@@ -216,6 +282,44 @@ fi
 # why a failure MOVES it: an image whose installer would skip half of what it was
 # told cannot be left sitting in out/ next to good ones, one `dd` away from a
 # machine. Nothing is deleted — it goes to out/rejected/, and the path is printed.
+# ── and, with -L, the local package is proved to be the one that LANDED ──────
+#
+# Repository order is a request, not a receipt. The local package and the
+# published one share a name and a version, so if the order were ever wrong — a
+# section inserted in the wrong place, a repo cached from a previous run — the
+# build would succeed and produce an image of the RELEASED installer while
+# everything on screen said otherwise. That is the failure this whole flag exists
+# to avoid, so it is checked rather than assumed: every file the local package
+# owns is compared, byte for byte, against the file of that name in the image.
+if [ -n "$LOCAL_PKGS" ]; then
+    echo
+    echo "==> Proving the local packages are the ones in the image"
+    _airootfs="$WORK/x86_64/airootfs"
+    _tmpx="$(mktemp -d)"
+    _mismatch=0
+    for _pkg in "$LOCAL_REPO"/*.pkg.tar.*; do
+        rm -rf "${_tmpx:?}"/..?* "${_tmpx:?}"/.[!.]* "${_tmpx:?}"/* 2>/dev/null || true
+        bsdtar -C "$_tmpx" -xf "$_pkg"
+        while IFS= read -r -d '' _f; do
+            _rel="${_f#"$_tmpx"/}"
+            case "$_rel" in .PKGINFO|.BUILDINFO|.MTREE|.INSTALL) continue ;; esac
+            if ! cmp -s "$_f" "$_airootfs/$_rel"; then
+                echo "  [ERR] /$_rel in the image is NOT the copy from $(basename -- "$_pkg")" >&2
+                _mismatch=1
+            fi
+        done < <(find "$_tmpx" -type f -print0)
+        echo "    $(basename -- "$_pkg")"
+    done
+    rm -rf "$_tmpx"
+    if [ "$_mismatch" -ne 0 ]; then
+        echo >&2
+        echo "  The published package won the resolution and the local one did not land." >&2
+        echo "  The image is NOT what -L asked for; do not test against it." >&2
+        rm -f "$STAMP"
+        exit 1
+    fi
+fi
+
 echo
 if ! "$REPO_DIR/check-base-config.sh" "$WORK/x86_64/airootfs"; then
     mapfile -t produced < <(find "$OUT" -maxdepth 1 -type f -name '*.iso' -newer "$STAMP")
@@ -239,3 +343,8 @@ rm -f "$STAMP"
 echo
 echo "==> Done:"
 ls -lh "$OUT"
+if [ -n "$LOCAL_PKGS" ]; then
+    echo
+    echo "  ⚠️  TEST IMAGE: built with unsigned local packages from $LOCAL_PKGS."
+    echo "      Do not publish it. A real image is a plain \`sudo ./build.sh\`."
+fi
