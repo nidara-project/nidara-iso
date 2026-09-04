@@ -27,6 +27,23 @@ Building the ISO requires `archiso` (from Arch `extra`) and `root` privileges (f
 sudo ./build.sh [-o OUTPUT_DIR] [-w WORK_DIR]
 ```
 
+### Testing an UNRELEASED change to the installer (or the desktop)
+
+The image installs `nidara-installer` from `[nidara]`, which nidara-repo builds from the tag in
+its `pins.env` — so a freshly built image carries the installer of the last RELEASE, and an
+unreleased change cannot reach a medium without cutting a release first.
+
+```bash
+cd ~/Dev/Distroia && ./scripts/dev/build-installer-pkg.sh    # -> out-pkg/
+cd ~/Dev/nidara-iso && sudo ./build.sh -L ~/Dev/Distroia/out-pkg
+```
+
+⚠️ **That produces a TEST image**: unsigned local packages, code in nobody's git history. Do not
+publish it. ⚠️ The local package carries the same name AND the same version as the published one
+(an unreleased tree still says `pkgver=<last release>`), so only repository order decides which
+lands — which is why `build.sh` compares every file the local package owns against the image,
+byte for byte, and fails if the published one won.
+
 Or raw `mkarchiso`:
 
 ```bash
