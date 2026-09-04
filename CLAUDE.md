@@ -152,7 +152,17 @@ When the test VM is running:
    dropped key becomes visible. It runs inside the built airootfs — the only place the exact
    pair exists — and `build.sh` moves a rejected image to `out/rejected/`.
 
-10. **What NOT to touch without explicit user alignment:**
+10. **Re-running a build over an old work directory produces NOTHING, and says Done:**
+   Every mkarchiso step is `_run_once` — it writes a marker into the work dir and is skipped
+   when the marker exists. A second run with the same `-w` therefore does no pacstrap, no
+   squashfs and no ISO, exits 0 after five lines of option validation, and leaves the PREVIOUS
+   image in `out/` for the closing `ls -lh` to present as the result. Measured 2026-09-04: a
+   build whose log was five lines long, with markers three hours old.
+   `build.sh` now removes such a work directory before starting (and says so). ⚠️ It was found
+   only because `-L`'s byte comparison noticed the airootfs was stale — nothing else in the
+   pipeline would have said a word.
+
+11. **What NOT to touch without explicit user alignment:**
    - The repository signing key fingerprint (`80B0AC8C36A43611A8619959B06B716279F755A9`).
    - The boot UUID scheme or volume label.
    - Default application choices or product packages (refer to `PRODUCT.md`).

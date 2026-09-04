@@ -35,6 +35,30 @@ done
 [ "$(id -u)" -eq 0 ] || { echo "build.sh must run as root (mkarchiso mounts filesystems)." >&2; exit 1; }
 command -v mkarchiso >/dev/null || { echo "archiso is not installed: pacman -S archiso" >&2; exit 1; }
 
+# ── a work directory from an earlier build is a SILENT no-op ─────────────────
+#
+# Every step of mkarchiso is `_run_once`: it writes a marker file into the work
+# directory and is skipped if that marker is already there. So re-running with the
+# same `-w` does **nothing at all** — no pacstrap, no squashfs, no ISO — and exits
+# 0 after five lines of option validation, leaving the PREVIOUS image sitting in
+# out/ where a `ls -lh` at the end presents it as the result.
+#
+# That is the worst shape a failure can have: "I rebuilt the ISO with the fix"
+# builds nothing, says Done, and hands you the image from before the fix. It was
+# caught on 2026-09-04 only because the -L verification compared bytes and found
+# the airootfs was three hours old; nothing else would have noticed.
+#
+# ⚠️ Removed rather than refused. A work directory is disposable by construction
+# (mkarchiso will delete it itself given -r) and asking somebody to type an rm
+# before every build is a rule that gets aliased away. Resuming a half-finished
+# build is the one thing this gives up; that is what calling mkarchiso directly
+# is for, and it is not what anybody runs build.sh to do.
+if compgen -G "$WORK/base.*" >/dev/null 2>&1 || compgen -G "$WORK/iso.*" >/dev/null 2>&1; then
+    echo "==> A previous build left $WORK behind. Removing it, or mkarchiso would skip"
+    echo "    every step it has already done and produce nothing."
+    rm -rf -- "${WORK:?}"
+fi
+
 if ! pacman-key --list-keys "$KEY_FPR" &>/dev/null; then
     echo "==> Trusting the nidara-repo signing key on this build host..."
     # `--init` first, and not only for the sake of a bare machine: the
@@ -313,8 +337,13 @@ if [ -n "$LOCAL_PKGS" ]; then
     rm -rf "$_tmpx"
     if [ "$_mismatch" -ne 0 ]; then
         echo >&2
-        echo "  The published package won the resolution and the local one did not land." >&2
-        echo "  The image is NOT what -L asked for; do not test against it." >&2
+        echo "  The image does not carry the local package. The image is NOT what -L" >&2
+        echo "  asked for; do not test against it." >&2
+        echo >&2
+        echo "  What to look at, in order — and do not assume the first one:" >&2
+        echo "    · is the airootfs from THIS run? \`ls -l $WORK/base._make_packages\`" >&2
+        echo "    · did the local repo win? \`pacman-conf --config $PACMAN_CONF --repo-list\`" >&2
+        echo "    · is the package in it? \`ls $LOCAL_REPO\`" >&2
         rm -f "$STAMP"
         exit 1
     fi
