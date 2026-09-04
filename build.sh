@@ -143,6 +143,10 @@ mkdir -p "$OUT" "$REPO_DIR/logs"
 LOG="$REPO_DIR/logs/build-$(date +%Y%m%d-%H%M%S).log"
 echo "==> mkarchiso: $PROFILE -> $OUT"
 echo "==> log: $LOG"
+# Which images this run produced, and not "the newest one in out/": the output
+# directory keeps previous builds, and the one thing the gate below must never
+# do is quarantine an image it did not make.
+STAMP="$(mktemp)"
 #
 # ⚠️ And the status is CAUGHT, not left to `set -e`. The read-back below is most
 # needed on a build that FAILED, and `set -e` would kill the script before it
@@ -195,8 +199,42 @@ if [ "$mkarchiso_status" -ne 0 ]; then
     echo
     echo "==> mkarchiso failed (exit $mkarchiso_status). The log above is kept at:"
     echo "    $LOG"
+    rm -f "$STAMP"
     exit "$mkarchiso_status"
 fi
+
+# ── and the image is not handed over until archinstall accepts its own half ───
+#
+# `packages.x86_64` names `archinstall` with no version, so building a new image
+# silently takes whatever was current that day — and the installer hands it the
+# whole product configuration. `check-base-config.sh` runs the archinstall that
+# is IN this image against the base.json that is in it; see its header for why
+# --dry-run alone is not enough to trust the answer.
+#
+# ⚠️ It runs after the build because that is when the pair exists in one place.
+# The ISO is therefore already written when the answer arrives, which is exactly
+# why a failure MOVES it: an image whose installer would skip half of what it was
+# told cannot be left sitting in out/ next to good ones, one `dd` away from a
+# machine. Nothing is deleted — it goes to out/rejected/, and the path is printed.
+echo
+if ! "$REPO_DIR/check-base-config.sh" "$WORK/x86_64/airootfs"; then
+    mapfile -t produced < <(find "$OUT" -maxdepth 1 -type f -name '*.iso' -newer "$STAMP")
+    if [ "${#produced[@]}" -gt 0 ]; then
+        mkdir -p "$OUT/rejected"
+        mv -- "${produced[@]}" "$OUT/rejected/"
+        [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER:" "$OUT/rejected" 2>/dev/null
+        echo >&2
+        echo "  The image this build produced was moved out of the way:" >&2
+        for iso in "${produced[@]}"; do
+            printf '      %s\n' "$OUT/rejected/$(basename -- "$iso")" >&2
+        done
+        echo >&2
+        echo "  It boots and it installs. What it installs is not what base.json says." >&2
+    fi
+    rm -f "$STAMP"
+    exit 1
+fi
+rm -f "$STAMP"
 
 echo
 echo "==> Done:"

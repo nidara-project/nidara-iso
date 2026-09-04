@@ -17,6 +17,7 @@ Guidance for AI agents working in the `nidara-iso` repository.
 | `profile/nidara-repo.gpg` | Public signing key for the `[nidara]` package repository. |
 | `installer-prototype/` | Prototype scripts verifying unattended `archinstall` integration (`gen-disk.py`, `nidara.json`). |
 | `build.sh` | Build wrapper establishing local key trust and invoking `mkarchiso`. |
+| `check-base-config.sh` | The gate that keeps `base.json` and the shipped `archinstall` compatible. Run by `build.sh` after the image is built. |
 
 ## How to Build
 
@@ -121,7 +122,20 @@ When the test VM is running:
    package (checksum))`. Nothing is corrupt. Delete the cached `nidara-*` copies and rebuild; it
    recurs after **any** push to nidara-repo, not just a version bump.
 
-9. **What NOT to touch without explicit user alignment:**
+9. **`archinstall` is UNPINNED, and `--dry-run` alone cannot police it:**
+   `packages.x86_64` names `archinstall` with no version, so every new image silently takes
+   whatever was current that day. The live session cannot drift (squashfs, no `-Syu`) — the
+   build is the whole risk window, and it grows as the installer hands archinstall more of the
+   configuration (the disk layer is moving back to it, nidara-desktop#310).
+   ⚠️ The trap is that archinstall reads its config with `args_config.get('<key>', default)`,
+   one key at a time: **a key it no longer knows is skipped in silence, exit 0.** A release that
+   renamed `custom_commands` would pass `--dry-run` and produce an installed machine with no
+   Nidara on it. So `check-base-config.sh` runs the dry-run *and* reads back the configuration
+   archinstall itself saves to `/var/log/archinstall/user_configuration.json`, which is where a
+   dropped key becomes visible. It runs inside the built airootfs — the only place the exact
+   pair exists — and `build.sh` moves a rejected image to `out/rejected/`.
+
+10. **What NOT to touch without explicit user alignment:**
    - The repository signing key fingerprint (`80B0AC8C36A43611A8619959B06B716279F755A9`).
    - The boot UUID scheme or volume label.
    - Default application choices or product packages (refer to `PRODUCT.md`).

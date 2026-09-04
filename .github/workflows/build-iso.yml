@@ -46,7 +46,7 @@ jobs:
         # mkarchiso, so a typo there dies AFTER the container is up.
         run: |
           set -e
-          for f in build.sh profile/profiledef.sh profile/airootfs/usr/local/bin/*; do
+          for f in build.sh check-base-config.sh profile/profiledef.sh profile/airootfs/usr/local/bin/*; do
             echo "  bash -n $f"; bash -n "$f"
           done
       - name: The live setup script must not reimplement nidara-setup

@@ -24,6 +24,17 @@ sudo ./build.sh            # → out/nidara-2026.09.01-x86_64.iso (today's date)
 registers that repo with `SigLevel = Required`, so an unsigned build host
 refuses to pull the desktop.
 
+It also refuses to hand over an image whose installer would not do what the
+image says. `packages.x86_64` asks for `archinstall` unpinned, so a build takes
+whatever version was current that day, and `check-base-config.sh` runs that
+exact archinstall — inside the airootfs the build just made — against the exact
+`base.json` it ships. ⚠️ The dry-run is only half of it: archinstall reads its
+config key by key with `.get()`, so **a key it no longer knows is skipped in
+silence**, and a rename of `custom_commands` would install a machine with no
+Nidara on it and exit 0. The other half reads back the configuration archinstall
+saves for itself and checks nothing went missing. A rejected image is moved to
+`out/rejected/` rather than left beside the good ones.
+
 **Images are built locally, not in CI** (decided 2026-08-25). CI keeps the `lint`
 job on every push — seconds, and it catches the syntax error that would otherwise
 die twelve minutes into a container — and the `build` job is `workflow_dispatch`
@@ -200,7 +211,8 @@ profile/                 an ordinary archiso profile
     etc/pacman.conf        the LIVE system's, and the installed one's: Include
     etc/pacman.d/…         the mirrorlist that Include names
   syslinux/ efiboot/     BIOS and UEFI boot entries
-build.sh                 key trust + mkarchiso
+build.sh                 key trust + mkarchiso + the base.json gate
+check-base-config.sh     does the image's archinstall still accept base.json?
 ```
 
 The one file worth reading is
