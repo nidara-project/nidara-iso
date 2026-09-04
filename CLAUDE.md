@@ -39,10 +39,15 @@ cd ~/Dev/nidara-iso && sudo ./build.sh -L ~/Dev/Distroia/out-pkg
 ```
 
 ⚠️ **That produces a TEST image**: unsigned local packages, code in nobody's git history. Do not
-publish it. ⚠️ The local package carries the same name AND the same version as the published one
-(an unreleased tree still says `pkgver=<last release>`), so only repository order decides which
-lands — which is why `build.sh` compares every file the local package owns against the image,
-byte for byte, and fails if the published one won.
+publish it — on the medium it identifies itself, `pacman -Q nidara-installer` answering
+`0.11.0-1.<epoch>`, which no release can produce.
+
+⚠️ **The stamped `pkgrel` is load-bearing, in two directions.** It makes the local package win on
+version rather than on repository order, and it keeps its filename out of a collision with the
+published package in the shared pacman cache — `pacstrap` uses `/var/cache/pacman/pkg`, and a
+cached copy with the same name and different bytes makes pacman abort the pacstrap with
+`is corrupted (invalid or corrupted package (checksum))`, about a cache that is fine. Same family
+as trap 8. `build.sh` compares every file the local package owns against the image anyway.
 
 Or raw `mkarchiso`:
 
