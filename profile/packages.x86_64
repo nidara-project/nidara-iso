@@ -107,6 +107,24 @@ e2fsprogs
 efibootmgr
 exfatprogs
 f2fs-tools
+# The installer has a button that opens this, and until now the button was hidden
+# on the shipped medium because the program was not on it. It is not a
+# convenience: since nidara-desktop#447 the answer to "how do I make room for
+# Nidara next to Windows" is *shrink it in an editor, then install into the
+# space* — we do not resize anything ourselves and archinstall has no resize at
+# all. Without gparted that route has no tool and the button is not even visible.
+#
+# The filesystem tooling it needs is already above and below this line, which is
+# what makes it cheap: `ntfsprogs` (so shrinking a Windows volume actually
+# works instead of showing greyed out), `parted`, `dosfstools`, `e2fsprogs`,
+# `btrfs-progs`, `exfatprogs`, `f2fs-tools`, `xfsprogs`.
+#
+# Measured 2026-09-08 rather than estimated, because "a GTK3 dependency chain" was
+# the one cost this was expected to have: against the closure of this whole file
+# it adds EIGHT packages — atk, atkmm, cairomm, glibmm, gtkmm3, libegl, pangomm
+# and gparted itself — for 4.7 MiB of downloads and 24.2 MiB installed, before
+# squashfs. GTK3 is already here; the desktop pulls it.
+gparted
 gptfdisk
 grub
 lvm2
