@@ -13,6 +13,17 @@ never on the medium (see "Identity" below). All three are served signed from
 Linux" is the whole claim — the name and the look are ours, the system is
 theirs, and `/etc/os-release` says both.
 
+## Before you install
+
+**Secure Boot has to be off.** This medium is not signed, so it will not boot on a machine with
+Secure Boot enabled — the firmware refuses the loader before anything of ours runs. Disable Secure
+Boot in the firmware settings to boot the image; how you get there varies by manufacturer.
+
+Leave it off afterwards: that is how Nidara runs. It can be turned back on, but the installed
+system has to be signed by hand first — so a machine that boots today stops booting the moment
+Secure Boot is re-enabled without that. Every Arch-based distribution is in the same position, for
+the same reason: the kernel comes from Arch's repositories and nobody signs it.
+
 ## Building
 
 ```bash
