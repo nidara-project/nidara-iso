@@ -72,82 +72,6 @@ if ! pacman-key --list-keys "$KEY_FPR" &>/dev/null; then
     pacman-key --lsign-key "$KEY_FPR"
 fi
 
-# ── the packages WE publish are the only ones that can be missing on purpose ──
-#
-# Everything else in packages.x86_64 comes from Arch, where a missing name means
-# a typo. Ours come from [nidara], which serves whatever release nidara-repo's
-# `pins.env` points at — so a package can be perfectly correct here, exist in
-# nidara-desktop's tree, and still not be there, because the pinned tag predates
-# it. That is not hypothetical: `nidara-installer` was added to the desktop's
-# PKGBUILD (as a split package) the day AFTER the release that is pinned, so for
-# five days the repo served three packages and this file named a fourth.
-#
-# mkarchiso does report it — as `error: target not found: nidara-installer`,
-# after setup, which reads exactly like a misspelling and sends you to the wrong
-# repository to look. This says which one it is, and what to do.
-#
-# Derived, not a fourth list: every package this project publishes is called
-# `nidara*`, so the check reads the profile's own files and needs no list of its
-# own to fall out of date.
-NIDARA_SERVER="$(sed -n '/^\[nidara\]/,/^\[/p' "$PROFILE/pacman.conf" \
-                 | sed -n 's/^Server *= *//p' | head -1)"
-NIDARA_SERVER="${NIDARA_SERVER//\$arch/x86_64}"
-WANT="$(grep -E '^nidara' "$PROFILE/packages.x86_64" || true)"
-
-# The check itself: ask the repository what it serves, before mkarchiso spends
-# twelve minutes asking the same question at pacstrap. `nidara.db` is a gzipped
-# tar holding one directory per package (`<name>-<pkgver>-<pkgrel>/desc`), so
-# the names it serves are a `tar -tf` away — no pacman, no local state to
-# trust or to distrust.
-#
-# A missing name FAILS the build here rather than warning and continuing,
-# because it is not a risk but a certainty: left to run, pacstrap dies with
-# `error: target not found` — the same fact, minutes later, worded like a
-# misspelling. The one deliberate exception is `-L`, whose whole point is
-# putting an unreleased package in front of the published one (#19): a local
-# package carrying the missing name satisfies the check, because pacstrap will
-# find it in [nidara-local].
-#
-# The FETCH only warns. This check is a convenience built on the same network
-# the build is about to use; a host that cannot reach the repository at all
-# has bigger problems coming, and a transient error on GitHub Pages must not
-# stop a build pacstrap would have completed.
-_db="$(mktemp)"
-_have=""
-if curl -fsSL --max-time 30 "$NIDARA_SERVER/nidara.db" -o "$_db"; then
-    _have="$(tar -tf "$_db" | sed -n 's|/desc$||p' | sed 's/-[^-]*-[^-]*$//' | sort -u)"
-else
-    echo "==> WARNING: could not fetch $NIDARA_SERVER/nidara.db — skipping the"
-    echo "    pre-build check of the nidara-* packages. If one is missing, pacstrap"
-    echo "    will still fail with 'target not found', after setup."
-fi
-rm -f "$_db"
-
-_missing=""
-if [ -n "$_have" ]; then
-    while IFS= read -r _pkg; do
-        [ -n "$_pkg" ] || continue
-        grep -qxF "$_pkg" <<< "$_have" && continue
-        if [ -n "$LOCAL_PKGS" ] && compgen -G "$LOCAL_PKGS/$_pkg-*.pkg.tar.*" >/dev/null; then
-            continue
-        fi
-        _missing="${_missing:+$_missing }$_pkg"
-    done <<< "$WANT"
-fi
-
-if [ -n "$_missing" ]; then
-    echo >&2
-    echo "  [ERR] [nidara] does not serve these packages, and no other repository can:" >&2
-    for _pkg in $_missing; do echo "          $_pkg" >&2; done
-    echo >&2
-    echo "        The name is right; the RELEASE is old. [nidara] serves whatever tag" >&2
-    echo "        nidara-repo's pins.env points at, and that tag predates the package." >&2
-    echo "        Cut the release and move the pin — or build the package locally and" >&2
-    echo "        pass it with -L, which exists for exactly this." >&2
-    echo >&2
-    exit 1
-fi
-
 # ── the repository's address is written in three places and they must agree ───
 #
 # It used to be written twice, in two files that were byte-identical, so nobody
@@ -183,6 +107,100 @@ if [ "$ADDR_MIRRORLIST" != "$ADDR_BUILD" ] || [ "$ADDR_INSTALLER" != "$ADDR_BUIL
     echo "        base.json (the installer's first command) $ADDR_INSTALLER" >&2
     echo >&2
     echo "        All three must be the same string, \$arch included." >&2
+    exit 1
+fi
+
+# ── the packages WE publish are the only ones that can be missing on purpose ──
+#
+# Everything else in packages.x86_64 comes from Arch, where a missing name means
+# a typo. Ours come from [nidara], which serves whatever release nidara-repo's
+# `pins.env` points at — so a package can be perfectly correct here, exist in
+# nidara-desktop's tree, and still not be there, because the pinned tag predates
+# it. That is not hypothetical: `nidara-installer` was added to the desktop's
+# PKGBUILD (as a split package) the day AFTER the release that is pinned, so for
+# five days the repo served three packages and this file named a fourth.
+#
+# mkarchiso does report it — as `error: target not found: nidara-installer`,
+# after setup, which reads exactly like a misspelling and sends you to the wrong
+# repository to look. This says which one it is, and what to do.
+#
+# Derived, not a fourth list: every package this project publishes is called
+# `nidara*`, so the check reads the profile's own files and needs no list of its
+# own to fall out of date.
+NIDARA_SERVER="$(sed -n '/^\[nidara\]/,/^\[/p' "$PROFILE/pacman.conf" \
+                 | sed -n 's/^Server *= *//p' | head -1)"
+NIDARA_SERVER="${NIDARA_SERVER//\$arch/x86_64}"
+WANT="$(grep -E '^nidara' "$PROFILE/packages.x86_64" || true)"
+
+# The check itself: ask the repository what it serves, before mkarchiso spends
+# twelve minutes asking the same question at pacstrap. `nidara.db` is a gzipped
+# tar holding one directory per package (`<name>-<pkgver>-<pkgrel>/desc`), so
+# the names it serves are a `tar -tf` away — no pacman, no local state to
+# trust or to distrust. It runs AFTER the address agreement above on purpose:
+# a mistyped `Server =` gets its own [ERR] there, instead of a confusing
+# "could not fetch" here.
+#
+# ⚠️ The fetch, the parse and the nonempty test are ONE condition, because this
+# script runs `set -euo pipefail`: `curl -f` guards the HTTP status, not the
+# body — a captive portal answers 200 with HTML — and a `tar` failing outside
+# the `if` would abort the build with no warning and the temp file left
+# behind. Anything that does not yield a nonempty listing lands in the same
+# warning, because this check is a convenience built on the same network the
+# build is about to use: a host that cannot reach the repository at all has
+# bigger problems coming, and a transient error must not stop a build pacstrap
+# would have completed.
+_db="$(mktemp)"
+_have=""
+_missing=""
+if curl -fsSL --max-time 30 "$NIDARA_SERVER/nidara.db" -o "$_db" \
+   && _have="$(tar -tf "$_db" | sed -n 's|/desc$||p' | sed 's/-[^-]*-[^-]*$//' | sort -u)" \
+   && [ -n "$_have" ]
+then
+    # Compared by NAME, not by glob: a `nidara-apps-extra` sitting in the -L
+    # directory would satisfy a `nidara-apps-*` pattern without providing
+    # `nidara-apps`. The strip is the mirror of the one above: a package
+    # filename is <name>-<pkgver>-<pkgrel>-<arch>.pkg.tar.*, and neither
+    # pkgver nor pkgrel can carry a hyphen.
+    _local=""
+    if [ -n "$LOCAL_PKGS" ]; then
+        shopt -s nullglob
+        for _f in "$LOCAL_PKGS"/*.pkg.tar.*; do
+            _local="$_local$(basename -- "$_f" | sed 's/-[^-]*-[^-]*-[^-]*\.pkg\.tar\.[^.]*$//')
+"
+        done
+        shopt -u nullglob
+    fi
+    while IFS= read -r _pkg; do
+        [ -n "$_pkg" ] || continue
+        grep -qxF "$_pkg" <<< "$_have" && continue
+        if [ -n "$_local" ] && grep -qxF "$_pkg" <<< "$_local"; then
+            continue
+        fi
+        _missing="${_missing:+$_missing }$_pkg"
+    done <<< "$WANT"
+else
+    echo "==> WARNING: could not read $NIDARA_SERVER/nidara.db — skipping the"
+    echo "    pre-build check of the nidara-* packages. If one is missing, pacstrap"
+    echo "    will still fail with 'target not found', after setup."
+fi
+rm -f "$_db"
+
+# A missing name FAILS the build rather than warning and continuing, because
+# it is not a risk but a certainty: left to run, pacstrap dies with
+# `error: target not found` — the same fact, minutes later, worded like a
+# misspelling. The one deliberate exception is `-L`, handled above: a local
+# package carrying the missing name satisfies the check, because pacstrap
+# will find it in [nidara-local].
+if [ -n "$_missing" ]; then
+    echo >&2
+    echo "  [ERR] [nidara] does not serve these packages, and no other repository can:" >&2
+    for _pkg in $_missing; do echo "          $_pkg" >&2; done
+    echo >&2
+    echo "        The name is right; the RELEASE is old. [nidara] serves whatever tag" >&2
+    echo "        nidara-repo's pins.env points at, and that tag predates the package." >&2
+    echo "        Cut the release and move the pin — or build the package locally and" >&2
+    echo "        pass it with -L, which exists for exactly this." >&2
+    echo >&2
     exit 1
 fi
 
