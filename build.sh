@@ -94,6 +94,60 @@ NIDARA_SERVER="$(sed -n '/^\[nidara\]/,/^\[/p' "$PROFILE/pacman.conf" \
 NIDARA_SERVER="${NIDARA_SERVER//\$arch/x86_64}"
 WANT="$(grep -E '^nidara' "$PROFILE/packages.x86_64" || true)"
 
+# The check itself: ask the repository what it serves, before mkarchiso spends
+# twelve minutes asking the same question at pacstrap. `nidara.db` is a gzipped
+# tar holding one directory per package (`<name>-<pkgver>-<pkgrel>/desc`), so
+# the names it serves are a `tar -tf` away — no pacman, no local state to
+# trust or to distrust.
+#
+# A missing name FAILS the build here rather than warning and continuing,
+# because it is not a risk but a certainty: left to run, pacstrap dies with
+# `error: target not found` — the same fact, minutes later, worded like a
+# misspelling. The one deliberate exception is `-L`, whose whole point is
+# putting an unreleased package in front of the published one (#19): a local
+# package carrying the missing name satisfies the check, because pacstrap will
+# find it in [nidara-local].
+#
+# The FETCH only warns. This check is a convenience built on the same network
+# the build is about to use; a host that cannot reach the repository at all
+# has bigger problems coming, and a transient error on GitHub Pages must not
+# stop a build pacstrap would have completed.
+_db="$(mktemp)"
+_have=""
+if curl -fsSL --max-time 30 "$NIDARA_SERVER/nidara.db" -o "$_db"; then
+    _have="$(tar -tf "$_db" | sed -n 's|/desc$||p' | sed 's/-[^-]*-[^-]*$//' | sort -u)"
+else
+    echo "==> WARNING: could not fetch $NIDARA_SERVER/nidara.db — skipping the"
+    echo "    pre-build check of the nidara-* packages. If one is missing, pacstrap"
+    echo "    will still fail with 'target not found', after setup."
+fi
+rm -f "$_db"
+
+_missing=""
+if [ -n "$_have" ]; then
+    while IFS= read -r _pkg; do
+        [ -n "$_pkg" ] || continue
+        grep -qxF "$_pkg" <<< "$_have" && continue
+        if [ -n "$LOCAL_PKGS" ] && compgen -G "$LOCAL_PKGS/$_pkg-*.pkg.tar.*" >/dev/null; then
+            continue
+        fi
+        _missing="${_missing:+$_missing }$_pkg"
+    done <<< "$WANT"
+fi
+
+if [ -n "$_missing" ]; then
+    echo >&2
+    echo "  [ERR] [nidara] does not serve these packages, and no other repository can:" >&2
+    for _pkg in $_missing; do echo "          $_pkg" >&2; done
+    echo >&2
+    echo "        The name is right; the RELEASE is old. [nidara] serves whatever tag" >&2
+    echo "        nidara-repo's pins.env points at, and that tag predates the package." >&2
+    echo "        Cut the release and move the pin — or build the package locally and" >&2
+    echo "        pass it with -L, which exists for exactly this." >&2
+    echo >&2
+    exit 1
+fi
+
 # ── the repository's address is written in three places and they must agree ───
 #
 # It used to be written twice, in two files that were byte-identical, so nobody
