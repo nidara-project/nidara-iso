@@ -61,6 +61,23 @@ jobs:
             exit 1
           fi
 
+      - name: base.json keeps the SUDO_USER placeholder the installer rewrites
+        # The last custom_command runs `SUDO_USER=nidara nidara-setup`, and the
+        # GTK installer rewrites that token to the chosen username before
+        # handing the plan to archinstall (nidara-desktop, ui/installer/
+        # lib/plan.ts: `cmd.replace(/\bSUDO_USER=[a-zA-Z0-9_-]+/, ...)`). The
+        # regex needs a token to find: if this command ever loses its
+        # SUDO_USER= prefix, the rewrite silently no-ops and first-boot setup
+        # runs against a user that does not exist. `nidara` is a placeholder,
+        # not a user — what this pins is that the token is there to be
+        # rewritten, and what it is called, so a rename on either side of the
+        # seam fails loudly HERE instead of on somebody's fresh install.
+        run: |
+          if ! grep -q 'SUDO_USER=nidara nidara-setup' profile/airootfs/usr/share/nidara-installer/base.json; then
+            echo "::error::base.json's nidara-setup command lost its SUDO_USER=nidara placeholder — the installer's rewrite in plan.ts would no-op, and first-boot setup would run against no user"
+            exit 1
+          fi
+
       - name: The image must answer everything systemd-firstboot would ask
         # systemd-firstboot runs on every boot of this medium — mkarchiso writes
         # /etc/machine-id as "uninitialized", which is exactly what
