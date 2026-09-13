@@ -175,14 +175,38 @@ prototype is not thrown away when the UI exists:
   built from a nidara-desktop TAG by nidara-repo, so it does not exist until the next desktop
   release is cut and pinned; naming it earlier would fail every ISO build in between.
 
+## Decided 2026-09-13: the scope of the first publishable installer
+
+What the first version does NOT do, and whether that is permanent. "Fixed" means
+there is no plan to revisit it; "later" means leaving it out now closes no door.
+
+| Not in the first version | Kind | Why | What would reopen it |
+|---|---|---|---|
+| **Legacy BIOS machines** (UEFI only) | **Fixed** | systemd-boot is UEFI-only. BIOS means a second boot loader (GRUB), a second boot path to test, and more ways for an install to fail, all for machines older than ~2012. The installer already refuses BIOS | Only a change of boot loader. Limine boots both, so the question returns if that decision goes to Limine (see below) |
+| **Encryption in manual mode** | **Later**, the nearest | Possible only for partitions the installer formats: a kept partition cannot be encrypted without erasing it, and the page has to say so. Design in desktop#556 | Entire-disk encryption reviewed and covered by an automated VM test first; its logic is reused |
+| **Installing with no network** (#20) | **Later** | Needs every package on the medium, kept current, and archinstall pointed at a local repository. It is an image project more than an installer one | Deciding how large the ISO may get and how often it is rebuilt |
+| **"Install alongside Windows"** (shrinking its partition automatically) | **Later**, no date | Resizing NTFS automatically is where installers lose data; Calamares leans on a whole library (KPMcore) for it. Today manual mode plus the "Open GParted" button covers it | A written guide first. Doing it automatically needs its own VM tests on real NTFS, BitLocker included |
+
+None of the "later" rows needs a rewrite to add: manual mode already installs into
+free space beside a kept ESP, encryption lives in one place (`lib/plan.ts`), and an
+offline install changes where packages come from, not what the pages ask.
+
 ## Not decided yet
 
+- **Boot loader: systemd-boot or Limine.** The maintainer's leaning is
+  systemd-boot, to stay inside the systemd ecosystem, but the implications of each
+  have to be weighed before deciding. It is not a boot-loader question alone:
+  booting into a btrfs snapshot (desktop#556) is harder on systemd-boot, whose
+  kernels live on the ESP outside any snapshot, and the prior art usually cited
+  for it is Limine's (`limine-snapper-sync`) — named from memory, not yet checked; Limine also boots BIOS machines (the "fixed" row above);
+  and XBOOTLDR for a shared Windows ESP (desktop#450) is designed on systemd-boot.
+  To be decided together, before promising snapshots or BIOS.
 - What the installer's version number is. It is built from a desktop tag but it
   is a product piece; `PRODUCT.md` has the two-number rule, and this does not
   obviously fall on either side.
-- Whether the first version offers encryption at all, given the escape hatch.
-- What happens after a successful install: reboot immediately, or return to the
-  live desktop with the option.
-- The boot menu of the installed system still says "Arch Linux (linux)" —
-  `archinstall` writes that entry, and it is the first thing a user sees after
-  installing. One `custom_command` away, but it needs deciding what it should say.
+- What happens after a successful install: today the last page offers "Restart
+  now"; whether it should also offer returning to the live desktop is open.
+
+Settled since this list was first written: entire-disk encryption ships (desktop
+#531, unlocked at the boot splash in a VM; its initramfs changes are under review),
+and the boot menu entry says "Nidara (linux)", not "Arch Linux (linux)".
