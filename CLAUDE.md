@@ -108,8 +108,19 @@ When the test VM is running:
    `pacman-conf` exits 1 with "config file … could not be read" and every pacman invocation fails,
    `pacman-key` included. That is why `/etc/pacman.d/nidara-mirrorlist` is shipped in the airootfs,
    written to the target by the installer's FIRST `custom_command`, and only then adopted by
-   `nidara-release` (the second `--overwrite` on that install line). `build.sh` checks the live
-   config parses and that the three copies of the address agree.
+   `nidara-release`. `build.sh` checks the live config parses and that the three copies of the
+   address agree.
+
+   ⚠️ **`--overwrite` does NOT adopt it.** The file is in the package's `backup=`, and pacman
+   installs a backup file that already exists on disk as `nidara-mirrorlist.pacnew`, leaving ours
+   in place. Ours then never matches the package's, so `pacman -Qkk nidara-release` reports it
+   modified (size and SHA256 mismatch) and every later upgrade of the file ALSO lands as
+   `.pacnew` — a corrected address would never reach an installed machine, which is the one
+   thing the `Include` exists for. Measured 2026-09-22, on the first install that kept the
+   commands' output (nidara-desktop's `lib/command-log.ts`): `warning: … installed as …pacnew`.
+   So the same command moves the `.pacnew` over ours; afterwards `pacman -Qkk` reports 0 altered
+   files and `pacman -Sy` still syncs. Do not drop the `mv` — nothing fails without it, the next
+   address change just silently goes nowhere.
 
 4. **Three keyring errors at the END of every build are normal — do not chase them:**
    ```
