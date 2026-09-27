@@ -38,8 +38,9 @@ EndeavourOS, Garuda, Manjaro, CachyOS — chose it *before* `archinstall` was a
 library worth driving.
 
 **What this costs, accepted with the decision:** weeks rather than days; manual
-partitioning, dual-boot and encryption are not in the first version (see the
-escape hatch below); and `archinstall`'s JSON schema breaks between releases, so
+partitioning, dual-boot and encryption are not in the first version (they were to
+go to archinstall's own TUI; "Disk: two modes" below says what shipped instead);
+and `archinstall`'s JSON schema breaks between releases, so
 the version has to be pinned — the prototype already caught its own project's
 sample config being rejected by the installed version.
 
@@ -124,18 +125,24 @@ Three things are deliberately not screens:
 - **Which packages.** That is `PRODUCT.md`'s decision and `nidara-apps`'
   contents, not a checklist handed to somebody who has not booted the system yet.
 
-## Disk, and the escape hatch
+## Disk: two modes, both on our page
 
-Version one does one shape: **one disk, erased, `default_layout`** — which is
-what the prototype installed and what the overwhelming majority of installs are.
+The 2026-08-25 plan did one shape (one disk, erased) and sent everything else —
+manual partitioning, dual-boot, LUKS — to `archinstall`'s own TUI from an
+*Advanced* entry. That entry was never built: the disk step grew both shapes
+itself, so this section now says what it does.
 
-Anything else — manual partitioning, dual-boot beside Windows, LUKS — opens
-`archinstall`'s own TUI in a terminal, from a clearly-marked *Advanced* entry.
-That is not a placeholder for a missing feature; it is a real, upstream-maintained
-installer that covers those cases today, and offering it is more honest than a
-partition editor written in a hurry. `manual_partitioning` and
-`pre_mounted_config` are in the schema for when our own version of those screens
-is worth building.
+- **Entire disk** — erases one disk and installs btrfs. Encryption is an opt-in
+  LUKS toggle on the same page (since 2026-09-11, desktop#531).
+- **Manual** (since 2026-08-27, desktop#280) — assigns mount points to existing
+  partitions and formats only the ones it is told to, including an install into
+  free space beside a kept ESP. An *Open GParted* button covers creating or
+  shrinking partitions first (`gparted` and `ntfsprogs` are on the medium for
+  it). Encryption is not offered here yet — the "later" row in the 2026-09-13
+  table below.
+
+In both modes `archinstall` still does the partitioning: the page only emits the
+`disk_config` it carries out.
 
 ## Progress, and failure
 
@@ -157,23 +164,26 @@ prototype is not thrown away when the UI exists:
   for: **a dry run on a machine without the target disk proves nothing** —
   `archinstall` skips a device it cannot find and exits 0 on an empty layout.
 
-## What exists today (2026-08-25)
+## What existed on 2026-08-25
+
+A snapshot, kept as written; where a bullet has since moved on, it says so.
 
 - **The frame**, in `nidara-desktop/ui/installer/`: the window, the step flow, the base-config
   reader, and one placeholder step that says which screens are missing rather than miming them.
   It builds and runs on any Nidara session; `packaging/nidara/PKGBUILD` emits `nidara-installer`
-  beside `nidara-desktop`.
+  beside `nidara-desktop`. (Every step has been built since; the placeholder is gone.)
 - **The product half**, here: `profile/airootfs/usr/share/nidara-installer/base.json` — the
   prototype's config with the machine's and the person's answers taken out (hostname, timezone,
   locale; the disk was never in it). What is left is what the PRODUCT decides: systemd-boot, the
   `linux` kernel, NetworkManager, zram, and the four `custom_commands` that trust the repo key,
   install `nidara-desktop` + `nidara-apps`, land `nidara-release` and run `nidara-setup`.
-  ⚠️ The last of those still carries `SUDO_USER=nidara`, a hardcoded user name from the
-  prototype. It keeps the by-hand path working today, and the front-end MUST rewrite it with the
-  account it just created — a base config cannot know that answer.
-- **Not on the image yet:** `packages.x86_64` does not list `nidara-installer`. The package is
-  built from a nidara-desktop TAG by nidara-repo, so it does not exist until the next desktop
-  release is cut and pinned; naming it earlier would fail every ISO build in between.
+  The last of those carries `SUDO_USER=nidara`, which is a placeholder, not a user name: the
+  front-end rewrites it with the account it just created (`lib/plan.ts`, since desktop#274), and
+  both ends are held by CI — this repo checks the token is still there to rewrite (#28), the
+  desktop checks the rewrite still happens.
+- **Not on the image yet** at the time: `packages.x86_64` did not list `nidara-installer`, because
+  the package is built from a nidara-desktop TAG and did not exist before the next release was
+  pinned. It is listed since 2026-08-30, and the ISO refuses to build without it.
 
 ## Decided 2026-09-13: the scope of the first publishable installer
 

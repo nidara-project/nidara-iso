@@ -200,17 +200,18 @@ the first thing with Nidara's identity on it is the desktop itself.
 
 ### Installing, today
 
-`archinstall` (Arch's own installer, in `extra`) ships on the image and works
-from a terminal. Its config accepts a custom signed repository, a package list
-and post-install commands, which is exactly the shape of a Nidara install:
-register `[nidara]`, install `nidara-desktop`, run `nidara-setup`.
+The live session opens **`nidara-installer`**: a GTK4 front-end of our own,
+driving `archinstall`, shipped as an ISO-only package built from a fourth bundle
+in `nidara-desktop` (decided 2026-08-25, on the image since 2026-08-30). Not
+Calamares. `INSTALLER.md` is the record, with the measurements and the prior art
+that turned an earlier recommendation around, and what the first version leaves
+out.
 
-**The graphical installer is decided** (2026-08-25): a GTK4 front-end of our own,
-driving `archinstall`, shipped as `nidara-installer` — an ISO-only package built
-from a fourth bundle in `nidara-desktop`. Not Calamares. `INSTALLER.md` is the
-record, with the measurements and the prior art that turned an earlier
-recommendation around. The live half of this repo was identical either way, which
-is why it was built first.
+`archinstall` itself (Arch's own installer, in `extra`) is on the image because
+the front-end drives it, and still works from a terminal. Its config accepts a
+custom signed repository, a package list and post-install commands, which is
+exactly the shape of a Nidara install: register `[nidara]`, install
+`nidara-desktop`, run `nidara-setup`.
 
 ## The trap this profile exists to avoid
 
@@ -326,8 +327,6 @@ own shell; get QEMU's pid with `fuser` on the pflash vars file.
 
 ## Known gaps
 
-- **No graphical installer yet** — decided but not written; `archinstall` from a
-  terminal is the only way in (see above and `INSTALLER.md`).
 - **No accessibility boot entry.** archiso's `releng` ships one that starts the
   `espeakup` screen reader; a graphical session needs a different answer (Orca),
   and shipping the console one would be a promise the desktop does not keep.
