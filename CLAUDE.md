@@ -153,6 +153,9 @@ When the test VM is running:
    '/usr/lib/initcpio/ipconfig'` (and friends), and mkinitcpio closes with *"errors were
    encountered during the build. The image may not be complete."* — buried in a wall of harmless
    `Possibly missing firmware for module:` warnings, which is why three images shipped that way.
+   Since 2026-10-12 (#35) `build.sh` no longer only prints such a line: any line its read-back
+   calls signal **rejects the image** (`out/rejected/`, exit 1), even when mkarchiso said 0. A new
+   line that is truly harmless is named as noise in the read-back, with the reason — never let through.
    `mkinitcpio-nfs-utils`, `nbd` and `pv` exist in the list for exactly this reason. **Trimming a
    package a hook needs means curating the HOOKS array in the same change.**
 

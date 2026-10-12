@@ -318,6 +318,22 @@ echo "==> log: $LOG"
 # directory keeps previous builds, and the one thing the gate below must never
 # do is quarantine an image it did not make.
 STAMP="$(mktemp)"
+
+# reject — moves the images THIS run produced to out/rejected/ and prints where.
+# Nothing is deleted: a rejected image is evidence. The caller says why, and exits.
+reject() {
+    local produced iso
+    mapfile -t produced < <(find "$OUT" -maxdepth 1 -type f -name '*.iso' -newer "$STAMP")
+    [ "${#produced[@]}" -gt 0 ] || return 0
+    mkdir -p "$OUT/rejected"
+    mv -- "${produced[@]}" "$OUT/rejected/"
+    [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER:" "$OUT/rejected" 2>/dev/null
+    echo >&2
+    echo "  The image this build produced was moved out of the way:" >&2
+    for iso in "${produced[@]}"; do
+        printf '      %s\n' "$OUT/rejected/$(basename -- "$iso")" >&2
+    done
+}
 #
 # ⚠️ And the status is CAUGHT, not left to `set -e`. The read-back below is most
 # needed on a build that FAILED, and `set -e` would kill the script before it
@@ -360,8 +376,8 @@ if [ -n "$signal" ]; then
     echo
     printf '%s\n' "$signal" | sed 's/^/      /'
     echo
-    echo "      An ISO may still have been produced — mkinitcpio reports and continues."
-    echo "      Do not test an image whose initramfs said it may be incomplete."
+    echo "      mkinitcpio reports these and carries on, so mkarchiso may still say 0;"
+    echo "      the image is rejected below either way."
 else
     echo "==> Nothing else said ERROR."
 fi
@@ -425,26 +441,34 @@ if [ -n "$LOCAL_PKGS" ]; then
         echo "    · is the airootfs from THIS run? \`ls -l $WORK/base._make_packages\`" >&2
         echo "    · did the local repo win? \`pacman-conf --config $PACMAN_CONF --repo-list\`" >&2
         echo "    · is the package in it? \`ls $LOCAL_REPO\`" >&2
+        reject
         rm -f "$STAMP"
         exit 1
     fi
 fi
 
+# ── an image whose build said ERROR is not handed over either ─────────────────
+#
+# Until 2026-10-12 the read-back above only PRINTED the signal: mkinitcpio reports
+# an initramfs that "may not be complete" and carries on, mkarchiso exits 0, and
+# the image reached `Done` and the workflow's upload like a good one (#35). A
+# line the read-back calls signal is now a rejected image. If a new line turns out
+# to be harmless, the fix is to name it as NOISE in the read-back, with the
+# reason — never to let signal through.
+if [ -n "$signal" ]; then
+    echo >&2
+    echo "==> [ERR] the build log says ERROR (above): the image is not handed over." >&2
+    reject
+    echo "  Read the lines above in $LOG; an initramfs that may be incomplete may not boot." >&2
+    rm -f "$STAMP"
+    exit 1
+fi
+
 echo
 if ! "$REPO_DIR/check-base-config.sh" "$WORK/x86_64/airootfs"; then
-    mapfile -t produced < <(find "$OUT" -maxdepth 1 -type f -name '*.iso' -newer "$STAMP")
-    if [ "${#produced[@]}" -gt 0 ]; then
-        mkdir -p "$OUT/rejected"
-        mv -- "${produced[@]}" "$OUT/rejected/"
-        [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER:" "$OUT/rejected" 2>/dev/null
-        echo >&2
-        echo "  The image this build produced was moved out of the way:" >&2
-        for iso in "${produced[@]}"; do
-            printf '      %s\n' "$OUT/rejected/$(basename -- "$iso")" >&2
-        done
-        echo >&2
-        echo "  It boots and it installs. What it installs is not what base.json says." >&2
-    fi
+    reject
+    echo >&2
+    echo "  It boots and it installs. What it installs is not what base.json says." >&2
     rm -f "$STAMP"
     exit 1
 fi
