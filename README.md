@@ -56,8 +56,10 @@ exact archinstall — inside the airootfs the build just made — against the ex
 config key by key with `.get()`, so **a key it no longer knows is skipped in
 silence**, and a rename of `custom_commands` would install a machine with no
 Nidara on it and exit 0. The other half reads back the configuration archinstall
-saves for itself and checks nothing went missing. A rejected image is moved to
-`out/rejected/` rather than left beside the good ones.
+saves for itself and checks nothing went missing. And a build whose log says
+`ERROR` (an initramfs that "may not be complete") is rejected too, even when
+mkarchiso exits 0. A rejected image is moved to `out/rejected/` rather than left
+beside the good ones.
 
 **Images are built locally, not in CI** (decided 2026-08-25). CI keeps the `lint`
 job on every push — seconds, and it catches the syntax error that would otherwise
