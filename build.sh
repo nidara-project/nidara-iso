@@ -183,7 +183,10 @@ else
     echo "    pre-build check of the nidara-* packages. If one is missing, pacstrap"
     echo "    will still fail with 'target not found', after setup."
 fi
-rm -f "$_db"
+# Kept for the candidate record at the end: the [nidara] database this build
+# was checked against, so the record can name the commit each package came from.
+mkdir -p "$WORK"
+mv -f -- "$_db" "$WORK/nidara.db.seen" 2>/dev/null || rm -f "$_db"
 
 # A missing name FAILS the build rather than warning and continuing, because
 # it is not a risk but a certainty: left to run, pacstrap dies with
@@ -472,7 +475,78 @@ if ! "$REPO_DIR/check-base-config.sh" "$WORK/x86_64/airootfs"; then
     rm -f "$STAMP"
     exit 1
 fi
+
+# ── and every image leaves a record of what it was built from ────────────────
+#
+# A bug report against "the ISO from Tuesday" has to point at ONE build, and the
+# image cannot say what it is: the date in its name is the day, not the inputs.
+# So beside each image goes <image>.record — what went into it, in plain text
+# (desktop #791):
+#
+#   · this repository's commit, and whether the tree had uncommitted changes;
+#   · nidara-repo's main at build time, and the sha256 of the [nidara] database
+#     the build was checked against;
+#   · for each nidara-* package on the medium, the nidara-desktop commit it was
+#     built from — the `<package>.source` record nidara-repo publishes beside it
+#     (absent for nidara-repo's own packages, which come from its own tree);
+#   · every package on the medium, with its version.
+#
+# ⚠️ It describes the MEDIUM. The installed system downloads its packages when it
+# is installed (nidara-iso#20), so two installs from one image a week apart can
+# differ; the gate's walks record the installed set separately.
+#
+# Nothing in it is fetched without saying so: a line that could not be known
+# says "unknown", it is never left out — a record missing a line reads as a
+# record of something that was not there.
+_record_value() { [ -n "$1" ] && printf '%s' "$1" || printf 'unknown'; }
+mapfile -t _produced < <(find "$OUT" -maxdepth 1 -type f -name '*.iso' -newer "$STAMP")
 rm -f "$STAMP"
+_root="$WORK/x86_64/airootfs"
+_iso_commit="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || true)"
+_iso_dirty=""
+[ -n "$(git -C "$REPO_DIR" status --porcelain --untracked-files=no 2>/dev/null)" ] && _iso_dirty=" (+ uncommitted changes)"
+_repo_main="$(git ls-remote https://github.com/nidara-project/nidara-repo refs/heads/main 2>/dev/null | cut -f1 || true)"
+_db_sha=""
+[ -s "$WORK/nidara.db.seen" ] && _db_sha="$(sha256sum "$WORK/nidara.db.seen" | cut -d' ' -f1)"
+for _iso in "${_produced[@]}"; do
+    _rec="$_iso.record"
+    {
+        echo "# What $(basename -- "$_iso") was built from — nidara-iso build.sh"
+        echo "image:          $(basename -- "$_iso")"
+        echo "sha256:         $(sha256sum "$_iso" | cut -d' ' -f1)"
+        echo "built:          $(date -u +%Y-%m-%dT%H:%M:%SZ) on $(uname -n)"
+        if [ -n "$LOCAL_PKGS" ]; then
+            echo "kind:           TEST IMAGE — unsigned local packages from $LOCAL_PKGS; not a candidate"
+        else
+            echo "kind:           candidate"
+        fi
+        echo "nidara-iso:     $(_record_value "$_iso_commit")$_iso_dirty"
+        echo "nidara-repo:    main at build time $(_record_value "$_repo_main")"
+        echo "[nidara] db:    $NIDARA_SERVER/nidara.db sha256 $(_record_value "$_db_sha")"
+        echo
+        echo "# nidara-* packages on the medium, and the nidara-desktop commit each was built from"
+        for _d in "$_root"/var/lib/pacman/local/nidara*/; do
+            [ -f "$_d/desc" ] || continue
+            _name="$(sed -n '/^%NAME%$/{n;p;q}' "$_d/desc")"
+            _ver="$(sed -n '/^%VERSION%$/{n;p;q}' "$_d/desc")"
+            _arch="$(sed -n '/^%ARCH%$/{n;p;q}' "$_d/desc")"
+            _src=""
+            if [ -n "$LOCAL_PKGS" ] && ls "$LOCAL_PKGS/$_name-$_ver-"*.pkg.tar.* >/dev/null 2>&1; then
+                _src="local package (not published)"
+            else
+                _r="$(curl -fsS --max-time 20 "$NIDARA_SERVER/$_name-$_ver-$_arch.source" 2>/dev/null | head -1 | tr -d '[:space:]' || true)"
+                if [[ "$_r" =~ ^[0-9a-f]{40}$ ]]; then _src="nidara-desktop $_r"
+                else _src="no .source published (nidara-repo's own tree, or not recorded)"; fi
+            fi
+            printf '%-24s %-16s %s\n' "$_name" "$_ver" "$_src"
+        done
+        echo
+        echo "# every package on the medium"
+        pacman --root "$_root" --dbpath "$_root/var/lib/pacman" -Q 2>/dev/null
+    } > "$_rec"
+    [ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER:" "$_rec" 2>/dev/null
+    echo "==> record: $_rec"
+done
 
 echo
 echo "==> Done:"
