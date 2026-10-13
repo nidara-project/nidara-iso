@@ -61,6 +61,13 @@ saves for itself and checks nothing went missing. And a build whose log says
 mkarchiso exits 0. A rejected image is moved to `out/rejected/` rather than left
 beside the good ones.
 
+Every image that is handed over gets an **`<image>.record`** beside it: the commit
+of this repository (and whether the tree had uncommitted changes), nidara-repo's
+`main` at build time, the sha256 of the `[nidara]` database, the nidara-desktop
+commit each `nidara-*` package was built from, and every package on the medium
+with its version. A bug report against an image names one build. What an image
+must pass before it is published is in [RELEASE-GATE.md](RELEASE-GATE.md).
+
 **Images are built locally, not in CI** (decided 2026-08-25). CI keeps the `lint`
 job on every push — seconds, and it catches the syntax error that would otherwise
 die twelve minutes into a container — and the `build` job is `workflow_dispatch`
